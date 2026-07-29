@@ -29,6 +29,7 @@ cu128 = [
 
 [project.scripts]
 ds-rf-input = "input_node:main"
+ds-rf-command = "input_node.client:main"
 ds-rf-motion-gen = "motion_gen.node:main"
 ds-rf-sonic = "sonic.node:main"
 

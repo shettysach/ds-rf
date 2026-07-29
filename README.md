@@ -2,7 +2,7 @@
 
 Runs a three-node Dora dataflow for Unitree G1:
 
-1. `input` parses manual terminal commands.
+1. `input` accepts manual commands over a local Unix socket.
 2. `motion-gen` generates a G1 MuJoCo reference motion.
 3. `sonic` runs MJLab together with the SONIC encoder and decoder.
 
@@ -35,6 +35,12 @@ export DS_RF_SONIC_DIR=/tmp/GEAR-SONIC/low_latency
 dora run dataflow.yml
 ```
 
+Then open a second terminal in the repository and start the interactive client:
+
+```bash
+uv run ds-rf-command
+```
+
 Commands in the first phase are `stand`, `slow-walk`, `walk`, and `run`.
 Append `forward`, `backward`, `left`, or `right`, and optionally a speed:
 
@@ -43,6 +49,9 @@ walk forward
 walk left 0.4
 stand
 ```
+
+The socket defaults to `/tmp/ds-rf-command-<uid>.sock`. Set
+`DS_RF_COMMAND_SOCKET` in both terminals to override it.
 
 Set `DS_RF_VIEWER=headless` to run without a native MuJoCo window.
 
