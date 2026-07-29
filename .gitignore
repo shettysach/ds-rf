@@ -12,3 +12,7 @@ wheels/
 .direnv/
 out/
 .envrc
+
+PLAN.md
+TASK.md
+LOGS.md

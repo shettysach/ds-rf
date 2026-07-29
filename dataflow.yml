@@ -1,0 +1,27 @@
+nodes:
+  - id: input
+    path: uv
+    args: run ds-rf-input
+    inputs:
+      motion_gen_status: motion-gen/status
+      sonic_status: sonic/status
+    outputs:
+      - command
+
+  - id: motion-gen
+    path: uv
+    args: run ds-rf-motion-gen
+    inputs:
+      command: input/command
+      sonic_status: sonic/status
+    outputs:
+      - motion
+      - status
+
+  - id: sonic
+    path: uv
+    args: run ds-rf-sonic
+    inputs:
+      motion: motion-gen/motion
+    outputs:
+      - status
