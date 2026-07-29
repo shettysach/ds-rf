@@ -21,7 +21,6 @@ The defaults use the checkpoints under `/tmp/GEAR-SONIC`. Override them with:
 export DS_RF_SONIC_DIR=/tmp/GEAR-SONIC
 export DS_RF_PLANNER_ONNX=/tmp/GEAR-SONIC/planner_sonic.onnx
 export DS_RF_DEVICE=cpu
-export DS_RF_ONNX_PROVIDER=cpu
 ```
 
 Use the low-latency SONIC bundle without changing code:
@@ -47,12 +46,36 @@ stand
 
 Set `DS_RF_VIEWER=headless` to run without a native MuJoCo window.
 
-## CUDA later
+## CUDA 12.8
 
-The mutually exclusive `cu128` extra reserves the GPU dependency boundary:
+Install the mutually exclusive GPU extra and select a CUDA device:
 
 ```bash
 uv sync --extra cu128
+export DS_RF_DEVICE=cuda:0
+dora run dataflow.yml
 ```
 
-CUDA ONNX execution, shared streams, and zero-copy Dora transport are deferred.
+`DS_RF_DEVICE` selects MJLab, Torch, and ONNX Runtime together. In the SONIC
+process, ONNX Runtime uses CUDA I/O binding on MJLab's Warp stream, so robot
+state, policy observations, actions, and simulation stay on the device. The
+motion generator runs in a separate Dora process and uses its own CUDA stream.
+
+Before starting the full graph, check the shared-stream integration directly:
+
+```bash
+WARP_CACHE_PATH=/tmp/ds-rf-warp-cache \
+  uv run pytest -q \
+  tests/test_integration.py::test_mjlab_and_sonic_share_one_cuda_stream -s
+```
+
+The test verifies that MJLab, the SONIC encoder, and the SONIC decoder use the
+same non-null stream pointer and complete one control step without moving the
+action back to the CPU.
+
+The `cpu` and `cu128` extras must not be installed together. To switch back:
+
+```bash
+uv sync --extra cpu
+export DS_RF_DEVICE=cpu
+```

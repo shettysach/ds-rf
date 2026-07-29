@@ -3,11 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-import onnxruntime as ort
 
 from motion_gen.backend import NativeMotion
 from shared.g1 import G1_QPOS_SIZE, standing_qpos
 from shared.messages import PlannerCommand
+from shared.onnx import create_onnx_session
 
 PLANNER_FPS = 30
 PLANNER_CONTEXT_FRAMES = 4
@@ -15,16 +15,10 @@ PLANNER_MAX_FRAMES = 64
 
 
 class PlannerSonic:
-    """CPU ONNX Runtime wrapper for NVIDIA's G1 kinematic planner."""
+    """ONNX Runtime wrapper for NVIDIA's G1 kinematic planner."""
 
-    def __init__(self, model_path: Path, *, provider: str = "cpu") -> None:
-        if provider != "cpu":
-            raise NotImplementedError(
-                "CUDA planner execution is reserved for the cu128 implementation"
-            )
-        self.session = ort.InferenceSession(
-            str(model_path), providers=["CPUExecutionProvider"]
-        )
+    def __init__(self, model_path: Path, *, device: str = "cpu") -> None:
+        self.session = create_onnx_session(model_path, device=device)
         self._validate_signature()
         initial = standing_qpos()
         self._context = np.tile(initial, (1, PLANNER_CONTEXT_FRAMES, 1))

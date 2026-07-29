@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import numpy as np
+import onnxruntime as ort
 import pytest
 import torch
 
@@ -14,6 +15,9 @@ from sonic.policy import RobotState, SonicPolicy
 SONIC_DIR = Path("/tmp/GEAR-SONIC")
 
 pytestmark = pytest.mark.integration
+CUDA_READY = torch.cuda.is_available() and "CUDAExecutionProvider" in (
+    ort.get_available_providers()
+)
 
 
 @pytest.mark.skipif(not SONIC_DIR.is_dir(), reason="SONIC bundle is unavailable")
@@ -27,8 +31,8 @@ def test_real_checkpoints_generate_action_and_motion() -> None:
         joint_vel=np.zeros(29),
     )
     action, completed = policy.infer(state)
-    assert action.shape == (29,)
-    assert np.isfinite(action).all()
+    assert action.shape == (1, 29)
+    assert bool(torch.isfinite(action).all())
     assert completed is None
 
     planner = PlannerSonic(SONIC_DIR / "planner_sonic.onnx")
@@ -44,7 +48,31 @@ def test_mjlab_cpu_control_step() -> None:
     try:
         policy = SonicPolicy(SONIC_DIR)
         action, _ = policy.infer(simulation.robot_state())
-        simulation.env.step(torch.from_numpy(action).unsqueeze(0))
-        assert simulation.env.common_step_counter == 1
+        simulation.step(action)
+        assert simulation.unwrapped.common_step_counter == 1
+        assert simulation.cfg.sim.njmax == 128
+    finally:
+        simulation.close()
+
+
+@pytest.mark.skipif(not CUDA_READY, reason="CUDA Torch and ONNX Runtime are required")
+@pytest.mark.skipif(not SONIC_DIR.is_dir(), reason="SONIC bundle is unavailable")
+def test_mjlab_and_sonic_share_one_cuda_stream() -> None:
+    simulation = SonicMjlabEnv(device="cuda:0")
+    try:
+        with simulation.compute_context():
+            policy = SonicPolicy(
+                SONIC_DIR,
+                device="cuda:0",
+                cuda_stream=simulation.cuda_stream,
+            )
+            action, _ = policy.infer(simulation.robot_state())
+
+        assert simulation.cuda_stream_ptr is not None
+        assert policy.encoder.cuda_stream_ptr == simulation.cuda_stream_ptr
+        assert policy.decoder.cuda_stream_ptr == simulation.cuda_stream_ptr
+        assert action.device == torch.device("cuda:0")
+        simulation.step(action)
+        assert simulation.unwrapped.common_step_counter == 1
     finally:
         simulation.close()

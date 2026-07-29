@@ -90,6 +90,14 @@ class ObservationLayout:
     def encoder_input_dimension(self) -> int:
         return sum(OBSERVATION_DIMS[name] for name in self.encoder_names)
 
+    @property
+    def policy_slices(self) -> dict[str, slice]:
+        return _observation_slices(self.policy_names)
+
+    @property
+    def encoder_slices(self) -> dict[str, slice]:
+        return _observation_slices(self.encoder_names)
+
     def pack_encoder(self, values: dict[str, np.ndarray]) -> np.ndarray:
         return self._pack(self.encoder_names, values, required=self.required_g1)
 
@@ -143,3 +151,13 @@ def _enabled_names(value: Any, section: str) -> tuple[str, ...]:
     if not isinstance(value, list):
         raise ValueError(f"Observation config section {section} is not a list")
     return tuple(str(item["name"]) for item in value if item.get("enabled", False))
+
+
+def _observation_slices(names: tuple[str, ...]) -> dict[str, slice]:
+    result: dict[str, slice] = {}
+    offset = 0
+    for name in names:
+        dimension = OBSERVATION_DIMS[name]
+        result[name] = slice(offset, offset + dimension)
+        offset += dimension
+    return result

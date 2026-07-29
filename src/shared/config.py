@@ -1,12 +1,31 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-OnnxProvider = Literal["cpu", "cuda"]
 ViewerMode = Literal["native", "headless"]
+_DEVICE_PATTERN = re.compile(r"cuda:(\d+)$")
+
+
+def normalize_device(device: str) -> str:
+    device = device.lower()
+    if device == "cuda":
+        device = "cuda:0"
+    if device != "cpu" and _DEVICE_PATTERN.fullmatch(device) is None:
+        raise ValueError(
+            f"Unsupported device {device!r}; expected 'cpu' or 'cuda:<index>'"
+        )
+    return device
+
+
+def parse_cuda_device_index(device: str) -> int:
+    match = _DEVICE_PATTERN.fullmatch(normalize_device(device))
+    if match is None:
+        raise ValueError(f"Device {device!r} is not a CUDA device")
+    return int(match.group(1))
 
 
 @dataclass(frozen=True)
@@ -14,7 +33,6 @@ class RuntimeConfig:
     sonic_dir: Path
     planner_onnx: Path
     device: str
-    onnx_provider: OnnxProvider
     viewer: ViewerMode
 
     @classmethod
@@ -26,19 +44,24 @@ class RuntimeConfig:
                 "/tmp/GEAR-SONIC/planner_sonic.onnx",
             )
         )
-        provider = os.environ.get("DS_RF_ONNX_PROVIDER", "cpu").lower()
         viewer = os.environ.get("DS_RF_VIEWER", "native").lower()
-        if provider not in ("cpu", "cuda"):
-            raise ValueError(f"Unsupported ONNX provider: {provider}")
         if viewer not in ("native", "headless"):
             raise ValueError(f"Unsupported viewer mode: {viewer}")
+        device = normalize_device(os.environ.get("DS_RF_DEVICE", "cpu"))
         return cls(
             sonic_dir=sonic_dir,
             planner_onnx=planner_onnx,
-            device=os.environ.get("DS_RF_DEVICE", "cpu"),
-            onnx_provider=provider,
+            device=device,
             viewer=viewer,
         )
+
+    @property
+    def is_cuda(self) -> bool:
+        return self.device.startswith("cuda:")
+
+    @property
+    def cuda_device_index(self) -> int:
+        return parse_cuda_device_index(self.device)
 
     def validate_motion_gen(self) -> None:
         if not self.planner_onnx.is_file():

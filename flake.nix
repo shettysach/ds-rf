@@ -1,5 +1,5 @@
 {
-  description = "Local CPU dev env";
+  description = "Local ds-rf development environment";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
