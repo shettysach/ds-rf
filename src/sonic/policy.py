@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import torch
@@ -107,7 +106,7 @@ class SonicPolicy:
         bundle_dir: Path,
         *,
         device: str = "cpu",
-        cuda_stream: Any | None = None,
+        cuda_stream: torch.cuda.Stream | None = None,
     ) -> None:
         self.device = torch.device(device)
         if self.device.type == "cuda" and cuda_stream is None:

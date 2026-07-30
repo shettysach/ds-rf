@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
 import onnxruntime as ort
 
 from shared.config import normalize_device, parse_cuda_device_index
+
+if TYPE_CHECKING:
+    import torch
 
 
 def validate_onnx_device(device: str) -> None:
@@ -38,7 +41,7 @@ def create_onnx_session(
     model_path: Path,
     *,
     device: str,
-    cuda_stream: Any | None = None,
+    cuda_stream: torch.cuda.Stream | None = None,
     require_full_device: bool = False,
 ) -> ort.InferenceSession:
     """Create an ONNX session on the requested device without silent fallback."""

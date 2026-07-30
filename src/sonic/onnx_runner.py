@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import torch
@@ -19,7 +18,7 @@ class FixedShapeOnnxModel:
         input_shape: tuple[int, int],
         output_shape: tuple[int, int],
         device: torch.device,
-        cuda_stream: Any | None = None,
+        cuda_stream: torch.cuda.Stream | None = None,
     ) -> None:
         self.device = device
         self.cuda_stream_ptr = (
