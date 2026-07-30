@@ -38,7 +38,7 @@ class SonicController:
             detail=f"device={simulation.device}, stream={stream_detail}",
         )
 
-    def __call__(self, obs: Any) -> torch.Tensor:
+    def __call__(self, obs: object) -> torch.Tensor:
         del obs
         with self.simulation.compute_context():
             self.poll()
@@ -118,9 +118,8 @@ def main() -> None:
 def _run_native(simulation: SonicMjlabEnv, controller: SonicController) -> None:
     from mjlab.viewer.native import NativeMujocoViewer
 
-    viewer = NativeMujocoViewer(
-        cast(Any, simulation), cast(Any, controller), frame_rate=60.0
-    )
+    viewer = NativeMujocoViewer(simulation, controller, frame_rate=60.0)
+    # MJLab has no public deferred-stop API; close() is unsafe mid-viewer tick.
     controller.on_stop = lambda: setattr(viewer, "_interrupted", True)
     viewer.run()
 

@@ -1,16 +1,20 @@
 from __future__ import annotations
 
-from contextlib import nullcontext
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import replace
-from typing import Any
+from typing import TYPE_CHECKING
 
 import torch
 
 from shared.g1 import G1_JOINT_NAMES_MJLAB
 from sonic.policy import RobotState
 
+if TYPE_CHECKING:
+    from mjlab.envs import ManagerBasedRlEnv, ManagerBasedRlEnvCfg
+    from mjlab.envs.types import VecEnvObs, VecEnvStepReturn
 
-def make_sonic_env_cfg():
+
+def make_sonic_env_cfg() -> ManagerBasedRlEnvCfg:
     """Build a minimal 50 Hz MJLab environment matching SONIC's G1 motors."""
 
     from mjlab.asset_zoo.robots.unitree_g1.g1_constants import (
@@ -95,7 +99,10 @@ class SonicMjlabEnv:
     def __init__(self, *, device: str = "cpu") -> None:
         from mjlab.envs import ManagerBasedRlEnv
 
-        self._env = ManagerBasedRlEnv(cfg=make_sonic_env_cfg(), device=device)
+        self._env: ManagerBasedRlEnv = ManagerBasedRlEnv(
+            cfg=make_sonic_env_cfg(), device=device
+        )
+        self.num_envs = self._env.num_envs
         self._cuda_stream: torch.cuda.Stream | None = None
         if device.startswith("cuda:"):
             import warp as wp
@@ -130,7 +137,7 @@ class SonicMjlabEnv:
             return None
         return int(self._cuda_stream.cuda_stream)
 
-    def compute_context(self):
+    def compute_context(self) -> AbstractContextManager[None]:
         if self._cuda_stream is None:
             return nullcontext()
         return torch.cuda.stream(self._cuda_stream)
@@ -146,7 +153,7 @@ class SonicMjlabEnv:
         )
 
     @property
-    def cfg(self):
+    def cfg(self) -> ManagerBasedRlEnvCfg:
         return self._env.cfg
 
     @property
@@ -154,26 +161,22 @@ class SonicMjlabEnv:
         return self._env.device
 
     @property
-    def num_envs(self) -> int:
-        return self._env.num_envs
-
-    @property
-    def unwrapped(self):
+    def unwrapped(self) -> ManagerBasedRlEnv:
         return self._env
 
     @property
     def step_dt(self) -> float:
         return self._env.step_dt
 
-    def get_observations(self) -> Any:
+    def get_observations(self) -> VecEnvObs:
         with self.compute_context():
             return self._env.get_observations()
 
-    def step(self, action: torch.Tensor):
+    def step(self, actions: torch.Tensor) -> VecEnvStepReturn:
         with self.compute_context():
-            return self._env.step(action)
+            return self._env.step(actions)
 
-    def reset(self):
+    def reset(self) -> tuple[VecEnvObs, dict[str, object]]:
         with self.compute_context():
             return self._env.reset()
 
