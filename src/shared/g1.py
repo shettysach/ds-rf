@@ -110,42 +110,8 @@ MJLAB_FROM_SONIC = np.array(
     dtype=np.int64,
 )
 
-# For a vector in MuJoCo/MJLab natural order, select these indices to obtain
-# SONIC/IsaacLab order.
-SONIC_FROM_MJLAB = np.array(
-    [
-        0,
-        6,
-        12,
-        1,
-        7,
-        13,
-        2,
-        8,
-        14,
-        3,
-        9,
-        15,
-        22,
-        4,
-        10,
-        16,
-        23,
-        5,
-        11,
-        17,
-        24,
-        18,
-        25,
-        19,
-        26,
-        20,
-        27,
-        21,
-        28,
-    ],
-    dtype=np.int64,
-)
+# Inverse mapping: MuJoCo/MJLab natural order to SONIC/IsaacLab order.
+SONIC_FROM_MJLAB = np.argsort(MJLAB_FROM_SONIC)
 
 
 def standing_qpos(height: float = 0.788740) -> np.ndarray:

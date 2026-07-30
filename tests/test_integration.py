@@ -39,13 +39,13 @@ def test_real_checkpoints_generate_action_and_motion() -> None:
     assert completed is None
 
     planner = PlannerSonic(SONIC_DIR / "planner_sonic.onnx")
-    native = planner.generate(
+    planner_qpos = planner.generate(
         PlannerSonicCommand.parse("walk forward 0.5", command_id="integration")
     )
-    chunk = resample_motion(native, command_id="integration")
-    assert 24 <= native.qpos.shape[0] <= 64
-    assert native.qpos.shape[0] % 4 == 0
-    assert chunk.qpos.shape == (native.qpos.shape[0] * 50 // 30, 36)
+    chunk = resample_motion(planner_qpos, command_id="integration")
+    assert 24 <= planner_qpos.shape[0] <= 64
+    assert planner_qpos.shape[0] % 4 == 0
+    assert chunk.qpos.shape == (planner_qpos.shape[0] * 50 // 30, 36)
 
 
 @pytest.mark.skipif(not SONIC_DIR.is_dir(), reason="SONIC bundle is unavailable")

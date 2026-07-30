@@ -55,14 +55,6 @@ class RuntimeConfig:
             viewer=viewer,
         )
 
-    @property
-    def is_cuda(self) -> bool:
-        return self.device.startswith("cuda:")
-
-    @property
-    def cuda_device_index(self) -> int:
-        return parse_cuda_device_index(self.device)
-
     def validate_motion_gen(self) -> None:
         if not self.planner_onnx.is_file():
             raise FileNotFoundError(

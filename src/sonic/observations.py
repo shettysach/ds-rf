@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import yaml
 
 OBSERVATION_DIMS = {
@@ -97,39 +96,6 @@ class ObservationLayout:
     @property
     def encoder_slices(self) -> dict[str, slice]:
         return _observation_slices(self.encoder_names)
-
-    def pack_encoder(self, values: dict[str, np.ndarray]) -> np.ndarray:
-        return self._pack(self.encoder_names, values, required=self.required_g1)
-
-    def pack_policy(self, values: dict[str, np.ndarray]) -> np.ndarray:
-        return self._pack(self.policy_names, values, required=set(self.policy_names))
-
-    def _pack(
-        self,
-        names: tuple[str, ...],
-        values: dict[str, np.ndarray],
-        *,
-        required: set[str] | frozenset[str],
-    ) -> np.ndarray:
-        unexpected = set(values) - set(names)
-        if unexpected:
-            raise ValueError(
-                f"Values supplied for unconfigured observations: {unexpected}"
-            )
-        missing = required - set(values)
-        if missing:
-            raise ValueError(f"Missing required observations: {missing}")
-        parts: list[np.ndarray] = []
-        for name in names:
-            value = np.asarray(
-                values.get(name, np.zeros(OBSERVATION_DIMS[name])),
-                dtype=np.float32,
-            ).reshape(-1)
-            expected = OBSERVATION_DIMS[name]
-            if value.size != expected:
-                raise ValueError(f"{name} has {value.size} values; expected {expected}")
-            parts.append(value)
-        return np.concatenate(parts)[None]
 
     def _validate_names(self) -> None:
         unknown = (set(self.policy_names) | set(self.encoder_names)) - set(

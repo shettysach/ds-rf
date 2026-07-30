@@ -4,13 +4,12 @@ from pathlib import Path
 
 import numpy as np
 
-from motion_gen.backend import NativeMotion
 from motion_gen.planner_sonic_command import PlannerSonicCommand
 from shared.g1 import G1_QPOS_SIZE, standing_qpos
 from shared.onnx import create_onnx_session
 
-PLANNER_FPS = 30
 PLANNER_CONTEXT_FRAMES = 4
+PLANNER_MIN_FRAMES = 24
 PLANNER_MAX_FRAMES = 64
 
 
@@ -27,11 +26,11 @@ class PlannerSonic:
         initial = standing_qpos()
         self._context = np.tile(initial, (1, PLANNER_CONTEXT_FRAMES, 1))
 
-    def generate(self, command: PlannerSonicCommand) -> NativeMotion:
+    def generate(self, command: PlannerSonicCommand) -> np.ndarray:
         outputs = self.session.run(
             None,
             {
-                "context_mujoco_qpos": self._context.astype(np.float32),
+                "context_mujoco_qpos": self._context,
                 "target_vel": np.array([command.target_vel], dtype=np.float32),
                 "mode": np.array([command.mode], dtype=np.int64),
                 "movement_direction": np.array(
@@ -51,7 +50,7 @@ class PlannerSonic:
         )
         padded_qpos = np.asarray(outputs[0], dtype=np.float32)
         frame_count = int(np.asarray(outputs[1]).reshape(-1)[0])
-        if not 0 < frame_count <= PLANNER_MAX_FRAMES:
+        if not PLANNER_MIN_FRAMES <= frame_count <= PLANNER_MAX_FRAMES:
             raise PlannerSonicOutputError(
                 f"Planner returned invalid frame count: {frame_count}"
             )
@@ -70,18 +69,8 @@ class PlannerSonic:
                 "Planner output contains non-unit root quaternions"
             )
 
-        context = qpos[-PLANNER_CONTEXT_FRAMES:]
-        if context.shape[0] < PLANNER_CONTEXT_FRAMES:
-            context = np.concatenate(
-                (
-                    np.repeat(
-                        context[:1], PLANNER_CONTEXT_FRAMES - len(context), axis=0
-                    ),
-                    context,
-                )
-            )
-        self._context = context[None].copy()
-        return NativeMotion(qpos=qpos, fps=PLANNER_FPS)
+        self._context = qpos[-PLANNER_CONTEXT_FRAMES:][None].copy()
+        return qpos
 
     def _validate_signature(self) -> None:
         expected_inputs = {

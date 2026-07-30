@@ -84,13 +84,12 @@ class MotionReference:
         self._qpos = torch.as_tensor(
             chunk.qpos, dtype=torch.float32, device=self.device
         ).contiguous()
+        if len(self._qpos) < 2:
+            raise ValueError("SONIC requires at least two reference frames")
         natural_positions = self._qpos[:, 7:]
         velocities = torch.empty_like(natural_positions)
-        if len(natural_positions) == 1:
-            velocities[0].zero_()
-        else:
-            velocities[:-1] = torch.diff(natural_positions, dim=0) * chunk.fps
-            velocities[-1] = velocities[-2]
+        velocities[:-1] = torch.diff(natural_positions, dim=0) * chunk.fps
+        velocities[-1] = velocities[-2]
         self._joint_vel = velocities
 
         robot_quat = _as_tensor(robot_quat_w, self.device)

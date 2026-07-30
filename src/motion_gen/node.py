@@ -53,7 +53,7 @@ def main() -> None:
             ),
         )
         try:
-            native = generator.generate(command)
+            planner_qpos = generator.generate(command)
         except PlannerSonicOutputError as exc:
             node.send_output(
                 "status",
@@ -63,7 +63,7 @@ def main() -> None:
             )
             return None
 
-        chunk = resample_motion(native, command_id=command.command_id)
+        chunk = resample_motion(planner_qpos, command_id=command.command_id)
         data, metadata = motion_to_arrow(chunk)
         node.send_output("motion", data, metadata=metadata)
         return request.command_id

@@ -1,6 +1,5 @@
 import numpy as np
 
-from motion_gen.backend import NativeMotion
 from motion_gen.resample import resample_motion
 
 
@@ -11,7 +10,7 @@ def test_resample_64_frames_to_106_without_mutating_input() -> None:
     qpos[:, 7] = np.arange(64)
     original = qpos.copy()
 
-    chunk = resample_motion(NativeMotion(qpos, fps=30), command_id="command")
+    chunk = resample_motion(qpos, command_id="command")
 
     assert chunk.qpos.shape == (106, 36)
     assert chunk.fps == 50

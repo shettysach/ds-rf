@@ -10,8 +10,7 @@ def test_cuda_device_is_the_single_runtime_switch(monkeypatch) -> None:
     config = RuntimeConfig.from_env()
 
     assert config.device == "cuda:0"
-    assert config.is_cuda
-    assert config.cuda_device_index == 0
+    assert parse_cuda_device_index(config.device) == 0
 
 
 def test_device_validation() -> None:
