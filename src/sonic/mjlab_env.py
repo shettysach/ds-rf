@@ -99,9 +99,7 @@ class SonicMjlabEnv:
     def __init__(self, *, device: str = "cpu") -> None:
         from mjlab.envs import ManagerBasedRlEnv
 
-        self._env: ManagerBasedRlEnv = ManagerBasedRlEnv(
-            cfg=make_sonic_env_cfg(), device=device
-        )
+        self._env = ManagerBasedRlEnv(cfg=make_sonic_env_cfg(), device=device)
         self.num_envs = self._env.num_envs
         self._cuda_stream: torch.cuda.Stream | None = None
         if device.startswith("cuda:"):

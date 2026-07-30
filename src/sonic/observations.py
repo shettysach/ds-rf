@@ -6,6 +6,8 @@ from typing import Literal
 
 import yaml
 
+type G1ReferenceStep = Literal[1, 5]
+
 OBSERVATION_DIMS = {
     "token_state": 64,
     "his_base_angular_velocity_10frame_step1": 30,
@@ -38,7 +40,7 @@ OBSERVATION_DIMS = {
 }
 
 
-def _g1_names(step: Literal[1, 5]) -> frozenset[str]:
+def _g1_names(step: G1ReferenceStep) -> frozenset[str]:
     suffix = f"10frame_step{step}"
     return frozenset(
         {
@@ -50,7 +52,7 @@ def _g1_names(step: Literal[1, 5]) -> frozenset[str]:
     )
 
 
-G1_NAMES: dict[Literal[1, 5], frozenset[str]] = {
+G1_NAMES: dict[G1ReferenceStep, frozenset[str]] = {
     1: _g1_names(1),
     5: _g1_names(5),
 }
@@ -63,7 +65,7 @@ class ObservationLayout:
     policy_input_dimension: int
     encoder_input_dimension: int
     encoder_dimension: int
-    g1_step: Literal[1, 5]
+    g1_step: G1ReferenceStep
 
     @classmethod
     def load(cls, path: Path) -> "ObservationLayout":
