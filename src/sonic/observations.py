@@ -37,6 +37,7 @@ OBSERVATION_DIMS = {
     "motion_joint_positions_wrists_4frame_step1": 24,
 }
 
+
 def _g1_names(step: Literal[1, 5]) -> frozenset[str]:
     suffix = f"10frame_step{step}"
     return frozenset(

@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import time
-from collections.abc import Callable
 from typing import Any, cast
 
 import torch
 from dora import Node
 
-from shared.config import RuntimeConfig
+from shared.config import SonicConfig
 from shared.messages import (
     RuntimeStatus,
     StatusState,
@@ -16,6 +14,10 @@ from shared.messages import (
 )
 from sonic.mjlab_env import SonicMjlabEnv
 from sonic.policy import SonicPolicy
+
+
+class _StopRequested(Exception):
+    pass
 
 
 class SonicController:
@@ -29,7 +31,6 @@ class SonicController:
         self.simulation = simulation
         self.policy = policy
         self.stopped = False
-        self.on_stop: Callable[[], None] | None = None
         stream = self.simulation.cuda_stream_ptr
         stream_detail = "none" if stream is None else hex(stream)
         self._report(
@@ -41,6 +42,8 @@ class SonicController:
         del obs
         with self.simulation.compute_context():
             self.poll()
+            if self.stopped:
+                raise _StopRequested
             state = self.simulation.robot_state()
             action, completed = self.policy.infer(state)
         if completed is not None:
@@ -58,8 +61,6 @@ class SonicController:
                 return
             if event["type"] == "STOP":
                 self.stopped = True
-                if self.on_stop is not None:
-                    self.on_stop()
                 return
             if event["type"] != "INPUT" or event["id"] != "motion":
                 continue
@@ -92,7 +93,7 @@ class SonicController:
 
 
 def main() -> None:
-    cfg = RuntimeConfig.from_env()
+    cfg = SonicConfig.from_env()
 
     node = Node()
     simulation = SonicMjlabEnv(device=cfg.device)
@@ -104,31 +105,18 @@ def main() -> None:
                 cuda_stream=simulation.cuda_stream,
             )
         controller = SonicController(node, simulation, policy)
-        if cfg.viewer == "native":
-            _run_native(simulation, controller)
-        else:
-            _run_headless(simulation, controller)
+        from mjlab.viewer import NativeMujocoViewer
+
+        try:
+            NativeMujocoViewer(
+                simulation,
+                controller,
+                frame_rate=60.0,
+            ).run()
+        except _StopRequested:
+            pass
     finally:
         simulation.close()
-
-
-def _run_native(simulation: SonicMjlabEnv, controller: SonicController) -> None:
-    from mjlab.viewer.native import NativeMujocoViewer
-
-    viewer = NativeMujocoViewer(simulation, controller, frame_rate=60.0)
-    # NOTE: MJLab has no public deferred-stop API; close() is unsafe mid-viewer tick.
-    controller.on_stop = lambda: setattr(viewer, "_interrupted", True)
-    viewer.run()
-
-
-def _run_headless(simulation: SonicMjlabEnv, controller: SonicController) -> None:
-    control_period = simulation.step_dt
-    while not controller.stopped:
-        started = time.perf_counter()
-        simulation.step(controller(None))
-        remaining = control_period - (time.perf_counter() - started)
-        if remaining > 0:
-            time.sleep(remaining)
 
 
 if __name__ == "__main__":

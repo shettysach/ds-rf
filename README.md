@@ -12,40 +12,39 @@ independent of that backend so Kimodo or ARDY can replace it later.
 ## DORA
 
 ```bash
-  cargo install \
-    --git https://github.com/dora-rs/dora.git \
-    --tag v1.0.0-rc.4 \
-    --locked \
-    --force \
-    dora-cli
-```
-
-## CPU setup
-
-```bash
 cargo install \
   --git https://github.com/dora-rs/dora.git \
   --tag v1.0.0-rc.4 \
   --locked \
   dora-cli
-uv sync --extra cpu
 ```
 
 The CLI and Python package are both pinned to Dora 1.0.0-rc.4. Add `--force`
-to the `cargo install` command when replacing an older CLI installation.
+when replacing an older CLI installation.
 
-The defaults use the checkpoints under `/tmp/GEAR-SONIC`. Override them with:
+## CPU setup
 
 ```bash
-export DS_RF_SONIC_DIR=/tmp/GEAR-SONIC
-export DS_RF_PLANNER_ONNX=/tmp/GEAR-SONIC/planner_sonic.onnx
-export DS_RF_DEVICE=cpu
+uv sync --extra cpu
 ```
 
-Use the low-latency SONIC bundle without changing code:
+## Configuration
+
+`dataflow.yml` declares the node environment, including defaults. Shell values
+override those defaults when Dora loads the dataflow.
+
+| Variable | Used by | Default |
+|---|---|---|
+| `DS_RF_DEVICE` | `motion-gen`, `sonic` | `cpu` |
+| `DS_RF_PLANNER_ONNX` | `motion-gen` | `/tmp/GEAR-SONIC/planner_sonic.onnx` |
+| `DS_RF_SONIC_DIR` | `sonic` | `/tmp/GEAR-SONIC` |
+
+No exports are required for the default CPU configuration. For example, use
+the low-latency SONIC bundle with:
 
 ```bash
-export DS_RF_SONIC_DIR=/tmp/GEAR-SONIC/low_latency
+DS_RF_SONIC_DIR=/tmp/GEAR-SONIC/low_latency \
+dora run dataflow.yml
 ```
 
 ## Run
@@ -79,10 +78,10 @@ walk backward 0.5 facing=forward
 squat height=0.6
 ```
 
-The socket defaults to `/tmp/ds-rf-command-<uid>.sock`. Set
-`DS_RF_COMMAND_SOCKET` in both terminals to override it.
-
-Set `DS_RF_VIEWER=headless` to run without a native MuJoCo window.
+The socket defaults to `/tmp/ds-rf-command-<uid>.sock` and is intentionally not
+set by `dataflow.yml`: the client runs outside Dora. Export
+`DS_RF_COMMAND_SOCKET` in both terminals when overriding it. `.env.example`
+lists optional overrides but is not loaded automatically.
 
 ## CUDA 12.8
 

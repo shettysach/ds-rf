@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/dora-rs/dora/v1.0.0-rc.4/dora-schema.json
+
 nodes:
   - id: input
     path: uv
@@ -11,6 +13,9 @@ nodes:
   - id: motion-gen
     path: uv
     args: run ds-rf-motion-gen
+    env:
+      DS_RF_DEVICE: "${DS_RF_DEVICE:-cpu}"
+      DS_RF_PLANNER_ONNX: "${DS_RF_PLANNER_ONNX:-/tmp/GEAR-SONIC/planner_sonic.onnx}"
     inputs:
       command: input/command
       sonic_status: sonic/status
@@ -21,6 +26,9 @@ nodes:
   - id: sonic
     path: uv
     args: run ds-rf-sonic
+    env:
+      DS_RF_DEVICE: "${DS_RF_DEVICE:-cpu}"
+      DS_RF_SONIC_DIR: "${DS_RF_SONIC_DIR:-/tmp/GEAR-SONIC}"
     inputs:
       motion: motion-gen/motion
     outputs:

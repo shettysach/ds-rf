@@ -5,7 +5,7 @@ from dora import Node
 from motion_gen.planner_sonic import PlannerSonic
 from motion_gen.planner_sonic_command import PlannerSonicCommand
 from motion_gen.resample import resample_motion
-from shared.config import RuntimeConfig
+from shared.config import MotionGenConfig
 from shared.messages import (
     MotionCommandRequest,
     RuntimeStatus,
@@ -18,7 +18,7 @@ from shared.messages import (
 
 
 def main() -> None:
-    cfg = RuntimeConfig.from_env()
+    cfg = MotionGenConfig.from_env()
     node = Node()
     generator = PlannerSonic(cfg.planner_onnx, device=cfg.device)
     pending: MotionCommandRequest | None = None

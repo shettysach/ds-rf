@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -31,7 +32,7 @@ def _run_motion_gen(monkeypatch, events, generate):
         device="cpu",
         planner_onnx=Path("planner.onnx"),
     )
-    monkeypatch.setattr(motion_gen_node.RuntimeConfig, "from_env", lambda: config)
+    monkeypatch.setattr(motion_gen_node.MotionGenConfig, "from_env", lambda: config)
     monkeypatch.setattr(motion_gen_node, "Node", lambda: node)
     monkeypatch.setattr(
         motion_gen_node, "PlannerSonic", lambda *args, **kwargs: generator
@@ -111,6 +112,21 @@ def test_sonic_error_preserves_motion_command_id(monkeypatch) -> None:
 
     status = status_from_arrow(node.outputs[-1][1])
     assert status == RuntimeStatus("sonic", "error", "command", "bad")
+
+
+def test_sonic_stop_unwinds_the_runtime() -> None:
+    node = _Node([{"type": "STOP"}])
+    simulation = SimpleNamespace(
+        device="cpu",
+        cuda_stream_ptr=None,
+        compute_context=nullcontext,
+    )
+    controller = sonic_node.SonicController(node, simulation, SimpleNamespace())
+
+    with pytest.raises(sonic_node._StopRequested):
+        controller(None)
+
+    assert controller.stopped
 
 
 def _raise(error: Exception):

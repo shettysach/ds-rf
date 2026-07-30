@@ -6,24 +6,26 @@ from pathlib import Path
 
 
 @dataclass(frozen=True)
-class RuntimeConfig:
-    sonic_dir: Path
+class MotionGenConfig:
     planner_onnx: Path
     device: str
-    viewer: str
 
     @classmethod
-    def from_env(cls) -> "RuntimeConfig":
-        sonic_dir = Path(os.environ.get("DS_RF_SONIC_DIR", "/tmp/GEAR-SONIC"))
-        planner_onnx = Path(
-            os.environ.get(
-                "DS_RF_PLANNER_ONNX",
-                "/tmp/GEAR-SONIC/planner_sonic.onnx",
-            )
-        )
+    def from_env(cls) -> "MotionGenConfig":
         return cls(
-            sonic_dir=sonic_dir,
-            planner_onnx=planner_onnx,
-            device=os.environ.get("DS_RF_DEVICE", "cpu"),
-            viewer=os.environ.get("DS_RF_VIEWER", "native"),
+            planner_onnx=Path(os.environ["DS_RF_PLANNER_ONNX"]),
+            device=os.environ["DS_RF_DEVICE"],
+        )
+
+
+@dataclass(frozen=True)
+class SonicConfig:
+    sonic_dir: Path
+    device: str
+
+    @classmethod
+    def from_env(cls) -> "SonicConfig":
+        return cls(
+            sonic_dir=Path(os.environ["DS_RF_SONIC_DIR"]),
+            device=os.environ["DS_RF_DEVICE"],
         )
