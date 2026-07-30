@@ -26,11 +26,13 @@ def create_onnx_session(
         options["user_compute_stream"] = str(cuda_stream.cuda_stream)
 
     sess_options = ort.SessionOptions()
-    sess_options.add_session_config_entry("session.disable_cpu_ep_fallback", "1")
     session = ort.InferenceSession(
         model_path,
-        sess_options,
-        providers=[("CUDAExecutionProvider", options)],
+        sess_options=sess_options,
+        providers=[
+            ("CUDAExecutionProvider", options),
+            "CPUExecutionProvider",  # NOTE: Currently some graphs fallback
+        ],
     )
     if session.get_providers()[0] != "CUDAExecutionProvider":
         raise RuntimeError(

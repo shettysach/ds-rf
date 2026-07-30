@@ -36,5 +36,6 @@ def test_cuda_session_receives_device_and_user_stream(monkeypatch) -> None:
         (
             "CUDAExecutionProvider",
             {"device_id": "0", "user_compute_stream": "12345"},
-        )
+        ),
+        "CPUExecutionProvider",
     ]
