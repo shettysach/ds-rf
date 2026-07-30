@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-import numpy as np
 import torch
 from mjlab.utils.lab_api.math import (
     matrix_from_quat,
@@ -23,16 +22,15 @@ from sonic.observations import ObservationLayout
 from sonic.onnx_runner import FixedShapeOnnxModel
 
 HISTORY_FRAMES = 10
-TensorLike = torch.Tensor | np.ndarray
 
 
 @dataclass(frozen=True)
 class RobotState:
-    root_quat_w: TensorLike
-    root_ang_vel_b: TensorLike
-    projected_gravity_b: TensorLike
-    joint_pos: TensorLike
-    joint_vel: TensorLike
+    root_quat_w: torch.Tensor
+    root_ang_vel_b: torch.Tensor
+    projected_gravity_b: torch.Tensor
+    joint_pos: torch.Tensor
+    joint_vel: torch.Tensor
 
 
 class MotionReference:
@@ -54,7 +52,7 @@ class MotionReference:
         self._frame = 0
         self._command_id: str | None = None
 
-    def load(self, chunk: MotionChunk, robot_quat_w: TensorLike) -> None:
+    def load(self, chunk: MotionChunk, robot_quat_w: torch.Tensor) -> None:
         self._qpos = torch.as_tensor(
             chunk.qpos, dtype=torch.float32, device=self.device
         ).contiguous()
@@ -66,10 +64,9 @@ class MotionReference:
         velocities[-1] = velocities[-2]
         self._joint_vel = velocities
 
-        robot_quat = _as_tensor(robot_quat_w, self.device)
         reference_quat = self._qpos[0, 3:7]
         self._heading_delta = quat_mul(
-            yaw_quat(robot_quat), quat_conjugate(yaw_quat(reference_quat))
+            yaw_quat(robot_quat_w), quat_conjugate(yaw_quat(reference_quat))
         )
         self._frame = 0
         self._command_id = chunk.command_id
@@ -145,22 +142,20 @@ class SonicPolicy:
         self.encoder.input.zero_()
         self.decoder.input.zero_()
 
-    def load_motion(self, chunk: MotionChunk, robot_quat_w: TensorLike) -> None:
+    def load_motion(self, chunk: MotionChunk, robot_quat_w: torch.Tensor) -> None:
         self.reference.load(chunk, robot_quat_w)
 
     def infer(self, state: RobotState) -> tuple[torch.Tensor, str | None]:
-        root_quat = _as_tensor(state.root_quat_w, self.device)
         joint_position = (
-            _as_tensor(state.joint_pos, self.device) - self._default_joint_pos
+            state.joint_pos - self._default_joint_pos
         ).index_select(0, self._sonic_from_mjlab)
-        joint_velocity = _as_tensor(state.joint_vel, self.device).index_select(
-            0, self._sonic_from_mjlab
-        )
+        joint_velocity = state.joint_vel.index_select(0, self._sonic_from_mjlab)
         positions, velocities, reference_quats = self.reference.window(
             step=self.layout.g1_step
         )
         relative_quats = quat_mul(
-            quat_conjugate(root_quat).expand_as(reference_quats), reference_quats
+            quat_conjugate(state.root_quat_w).expand_as(reference_quats),
+            reference_quats,
         )
         orientation_6d = matrix_from_quat(relative_quats)[..., :2]
         suffix = f"10frame_step{self.layout.g1_step}"
@@ -173,14 +168,14 @@ class SonicPolicy:
         self._copy_policy("token_state", token)
         self._append_history(
             "his_base_angular_velocity_10frame_step1",
-            _as_tensor(state.root_ang_vel_b, self.device),
+            state.root_ang_vel_b,
         )
         self._append_history("his_body_joint_positions_10frame_step1", joint_position)
         self._append_history("his_body_joint_velocities_10frame_step1", joint_velocity)
         self._append_history("his_last_actions_10frame_step1", self._last_action)
         self._append_history(
             "his_gravity_dir_10frame_step1",
-            _as_tensor(state.projected_gravity_b, self.device),
+            state.projected_gravity_b,
         )
         action_sonic = self.decoder.run().reshape(29)
         if self.device.type == "cpu" and not bool(torch.isfinite(action_sonic).all()):
@@ -202,7 +197,3 @@ class SonicPolicy:
         )
         history[:-1].copy_(history[1:].clone())
         history[-1].copy_(value.reshape(-1))
-
-
-def _as_tensor(value: TensorLike, device: torch.device) -> torch.Tensor:
-    return torch.as_tensor(value, dtype=torch.float32, device=device)

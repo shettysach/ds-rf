@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import numpy as np
 import onnxruntime as ort
 import pytest
 import torch
@@ -26,11 +25,11 @@ def test_real_checkpoints_generate_action_and_motion() -> None:
     encoder_mode = policy.layout.encoder_slices["encoder_mode_4"]
     policy.encoder.input[0, encoder_mode].fill_(1.0)
     state = RobotState(
-        root_quat_w=np.array([1.0, 0.0, 0.0, 0.0]),
-        root_ang_vel_b=np.zeros(3),
-        projected_gravity_b=np.array([0.0, 0.0, -1.0]),
-        joint_pos=DEFAULT_JOINT_POS_MJLAB,
-        joint_vel=np.zeros(29),
+        root_quat_w=torch.tensor([1.0, 0.0, 0.0, 0.0]),
+        root_ang_vel_b=torch.zeros(3),
+        projected_gravity_b=torch.tensor([0.0, 0.0, -1.0]),
+        joint_pos=torch.as_tensor(DEFAULT_JOINT_POS_MJLAB),
+        joint_vel=torch.zeros(29),
     )
     action, completed = policy.infer(state)
     assert not bool(policy.encoder.input[0, encoder_mode].any())
