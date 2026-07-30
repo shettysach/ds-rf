@@ -75,6 +75,93 @@ def test_sonic_error_releases_pending_motion(monkeypatch) -> None:
     assert generated == [2, 3]
 
 
+def test_motion_gen_repeats_completed_command(monkeypatch) -> None:
+    request = MotionCommandRequest("walk", "walk left")
+    generated: list[int] = []
+
+    def generate(command):
+        generated.append(command.mode)
+        return object()
+
+    _run_motion_gen(
+        monkeypatch,
+        [
+            {"type": "INPUT", "id": "command", "value": request},
+            {
+                "type": "INPUT",
+                "id": "sonic_status",
+                "value": RuntimeStatus("sonic", "done", "walk"),
+            },
+        ],
+        generate,
+    )
+
+    assert generated == [2, 2]
+
+
+def test_motion_gen_uses_latest_pending_command_at_boundary(monkeypatch) -> None:
+    walk = MotionCommandRequest("walk", "walk")
+    run = MotionCommandRequest("run", "run")
+    stand = MotionCommandRequest("stand", "stand")
+    generated: list[int] = []
+
+    def generate(command):
+        generated.append(command.mode)
+        return object()
+
+    _run_motion_gen(
+        monkeypatch,
+        [
+            {"type": "INPUT", "id": "command", "value": walk},
+            {"type": "INPUT", "id": "command", "value": run},
+            {"type": "INPUT", "id": "command", "value": stand},
+            {
+                "type": "INPUT",
+                "id": "sonic_status",
+                "value": RuntimeStatus("sonic", "done", "walk"),
+            },
+        ],
+        generate,
+    )
+
+    assert generated == [2, 0]
+
+
+def test_invalid_pending_command_keeps_repeating_active_motion(monkeypatch) -> None:
+    walk = MotionCommandRequest("walk", "walk")
+    invalid = MotionCommandRequest("invalid", "not-a-mode")
+    generated: list[int] = []
+
+    def generate(command):
+        generated.append(command.mode)
+        return object()
+
+    node = _run_motion_gen(
+        monkeypatch,
+        [
+            {"type": "INPUT", "id": "command", "value": walk},
+            {"type": "INPUT", "id": "command", "value": invalid},
+            {
+                "type": "INPUT",
+                "id": "sonic_status",
+                "value": RuntimeStatus("sonic", "done", "walk"),
+            },
+        ],
+        generate,
+    )
+
+    errors = [
+        status_from_arrow(value)
+        for output_id, value, _kwargs in node.outputs
+        if output_id == "status"
+    ]
+    assert generated == [2, 2]
+    assert any(
+        status.state == "error" and status.command_id == "invalid"
+        for status in errors
+    )
+
+
 def test_motion_gen_does_not_swallow_unexpected_errors(monkeypatch) -> None:
     request = MotionCommandRequest("command", "walk")
 

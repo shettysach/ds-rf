@@ -78,6 +78,13 @@ walk backward 0.5 facing=forward
 squat height=0.6
 ```
 
+Manual commands remain active until another command replaces them. Motion is
+generated repeatedly in planner-sized chunks, and the newest command takes
+effect at the next chunk boundary. This gives a worst-case switching delay of
+the remaining portion of the current roughly 0.8--2.1 second chunk, plus the
+time needed for the next planner inference. All modes, including `stand` and
+gestures, repeat under this rule.
+
 The socket defaults to `/tmp/ds-rf-command-<uid>.sock` and is intentionally not
 set by `dataflow.yml`: the client runs outside Dora. Export
 `DS_RF_COMMAND_SOCKET` in both terminals when overriding it. `.env.example`

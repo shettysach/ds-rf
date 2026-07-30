@@ -22,7 +22,7 @@ def main() -> None:
     node = Node()
     generator = PlannerSonic(cfg.planner_onnx, device=cfg.device)
     pending: MotionCommandRequest | None = None
-    active_command_id: str | None = None
+    active: MotionCommandRequest | None = None
 
     def report(
         state: StatusState,
@@ -34,19 +34,19 @@ def main() -> None:
 
     report(StatusState.READY, detail=f"device={cfg.device}")
 
-    def generate(request: MotionCommandRequest) -> str | None:
+    def generate(request: MotionCommandRequest) -> bool:
         try:
             command = parse_motion_command(request.text)
         except ValueError as exc:
             report(StatusState.ERROR, request.command_id, str(exc))
-            return None
+            return False
 
         report(StatusState.GENERATING, request.command_id)
         planner_qpos = generator.generate(command)
         chunk = resample_motion(planner_qpos, command_id=request.command_id)
         data, metadata = motion_to_arrow(chunk)
         node.send_output("motion", data, metadata=metadata)
-        return request.command_id
+        return True
 
     for event in node:
         if event["type"] == "STOP":
@@ -57,21 +57,32 @@ def main() -> None:
             request = command_from_arrow(
                 event["value"], dict(event.get("metadata") or {})
             )
-            if active_command_id is not None:
+            if active is not None:
                 pending = request
-            else:
-                active_command_id = generate(request)
+            elif generate(request):
+                active = request
         elif event["id"] == "sonic_status":
             status = status_from_arrow(event["value"])
             if (
                 status.source == "sonic"
                 and status.state in {StatusState.DONE, StatusState.ERROR}
-                and status.command_id == active_command_id
+                and active is not None
+                and status.command_id == active.command_id
             ):
-                active_command_id = None
-                if pending is not None:
-                    request, pending = pending, None
-                    active_command_id = generate(request)
+                completed, active = active, None
+                replacement, pending = pending, None
+                if status.state == StatusState.ERROR:
+                    if replacement is not None and generate(replacement):
+                        active = replacement
+                    continue
+
+                request = replacement if replacement is not None else completed
+                if generate(request):
+                    active = request
+                elif replacement is not None and generate(completed):
+                    # A malformed replacement must not stop the last valid
+                    # indefinite command.
+                    active = completed
 
 
 if __name__ == "__main__":
