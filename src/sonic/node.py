@@ -119,7 +119,7 @@ def _run_native(simulation: SonicMjlabEnv, controller: SonicController) -> None:
     from mjlab.viewer.native import NativeMujocoViewer
 
     viewer = NativeMujocoViewer(simulation, controller, frame_rate=60.0)
-    # MJLab has no public deferred-stop API; close() is unsafe mid-viewer tick.
+    # NOTE: MJLab has no public deferred-stop API; close() is unsafe mid-viewer tick.
     controller.on_stop = lambda: setattr(viewer, "_interrupted", True)
     viewer.run()
 
