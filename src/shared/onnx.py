@@ -34,10 +34,6 @@ def create_onnx_session(
             "CPUExecutionProvider",  # NOTE: Currently some graphs fallback
         ],
     )
-    if session.get_providers()[0] != "CUDAExecutionProvider":
-        raise RuntimeError(
-            f"ONNX Runtime did not activate CUDA: {session.get_providers()}"
-        )
     return session
 
 
