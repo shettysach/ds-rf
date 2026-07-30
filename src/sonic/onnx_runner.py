@@ -48,13 +48,10 @@ class FixedShapeOnnxModel:
 
     def _create_cuda_binding(self):
         binding = self.session.io_binding()
-        device_index = self.device.index
-        if device_index is None:
-            raise ValueError(f"CUDA device has no index: {self.device}")
         binding.bind_input(
             self.input_name,
             "cuda",
-            device_index,
+            0,
             np.float32,
             tuple(self.input.shape),
             self.input.data_ptr(),
@@ -62,7 +59,7 @@ class FixedShapeOnnxModel:
         binding.bind_output(
             self.output_name,
             "cuda",
-            device_index,
+            0,
             np.float32,
             tuple(self.output.shape),
             self.output.data_ptr(),

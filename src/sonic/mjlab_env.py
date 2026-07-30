@@ -117,8 +117,6 @@ class SonicMjlabEnv:
                 warp_stream.cuda_stream,
                 device=torch.device(device),
             )
-            if int(self._cuda_stream.cuda_stream) != int(warp_stream.cuda_stream):
-                raise RuntimeError("Torch and MJLab did not adopt the same CUDA stream")
         with self.compute_context():
             self._env.reset()
         joint_names = tuple(self._env.scene["robot"].joint_names)

@@ -19,7 +19,6 @@ from shared.messages import (
 
 def main() -> None:
     cfg = RuntimeConfig.from_env()
-    cfg.validate_motion_gen()
     node = Node()
     generator = PlannerSonic(cfg.planner_onnx, device=cfg.device)
     pending: MotionCommandRequest | None = None

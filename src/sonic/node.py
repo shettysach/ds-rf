@@ -93,7 +93,6 @@ class SonicController:
 
 def main() -> None:
     cfg = RuntimeConfig.from_env()
-    cfg.validate_sonic()
 
     node = Node()
     simulation = SonicMjlabEnv(device=cfg.device)

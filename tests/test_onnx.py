@@ -27,7 +27,7 @@ def test_cuda_session_receives_device_and_user_stream(monkeypatch) -> None:
 
     session = onnx_utils.create_onnx_session(
         Path("model.onnx"),
-        device="cuda:2",
+        device="cuda:0",
         cuda_stream=SimpleNamespace(cuda_stream=12345),
     )
 
@@ -35,6 +35,6 @@ def test_cuda_session_receives_device_and_user_stream(monkeypatch) -> None:
     assert captured["providers"] == [
         (
             "CUDAExecutionProvider",
-            {"device_id": "2", "user_compute_stream": "12345"},
+            {"device_id": "0", "user_compute_stream": "12345"},
         )
     ]

@@ -109,11 +109,6 @@ class SonicPolicy:
         cuda_stream: torch.cuda.Stream | None = None,
     ) -> None:
         self.device = torch.device(device)
-        if self.device.type == "cuda" and cuda_stream is None:
-            raise ValueError("CUDA SONIC requires MJLab's CUDA stream")
-        if self.device.type == "cpu" and cuda_stream is not None:
-            raise ValueError("A CUDA stream cannot be used with the CPU device")
-
         self.layout = ObservationLayout.load(bundle_dir / "observation_config.yaml")
         self.encoder = FixedShapeOnnxModel(
             bundle_dir / "model_encoder.onnx",

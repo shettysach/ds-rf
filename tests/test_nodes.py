@@ -30,7 +30,6 @@ def _run_motion_gen(monkeypatch, events, generate):
     config = SimpleNamespace(
         device="cpu",
         planner_onnx=Path("planner.onnx"),
-        validate_motion_gen=lambda: None,
     )
     monkeypatch.setattr(motion_gen_node.RuntimeConfig, "from_env", lambda: config)
     monkeypatch.setattr(motion_gen_node, "Node", lambda: node)
