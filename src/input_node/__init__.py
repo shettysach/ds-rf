@@ -6,7 +6,20 @@ from typing import Any, cast
 from dora import Node
 
 from input_node.socket_server import CommandServer, command_socket_path
-from shared.messages import MotionCommandRequest, command_to_arrow, status_from_arrow
+from shared.messages import (
+    MotionCommandRequest,
+    RuntimeStatus,
+    StatusState,
+    command_to_arrow,
+    status_from_arrow,
+)
+
+
+def _format_status(status: RuntimeStatus) -> str | None:
+    if status.state != StatusState.ERROR:
+        return None
+    suffix = f" ({status.detail})" if status.detail else ""
+    return f"[{status.source}] {status.state}{suffix}"
 
 
 def main() -> None:
@@ -22,10 +35,10 @@ def main() -> None:
                     break
                 if event["type"] == "INPUT":
                     status = status_from_arrow(event["value"])
-                    suffix = f" ({status.detail})" if status.detail else ""
-                    message = f"[{status.source}] {status.state}{suffix}"
-                    print(message)
-                    server.broadcast(message)
+                    message = _format_status(status)
+                    if message is not None:
+                        print(message)
+                        server.broadcast(message)
 
             commands = server.poll()
             for text in commands:
