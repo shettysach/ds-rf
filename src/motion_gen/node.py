@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dora import Node
 
-from motion_gen.planner_sonic import PlannerSonic, PlannerSonicOutputError
+from motion_gen.planner_sonic import PlannerSonic
 from motion_gen.planner_sonic_command import PlannerSonicCommand
 from motion_gen.resample import resample_motion
 from shared.config import RuntimeConfig
@@ -42,12 +42,7 @@ def main() -> None:
             return None
 
         report(StatusState.GENERATING, request.command_id)
-        try:
-            planner_qpos = generator.generate(command)
-        except PlannerSonicOutputError as exc:
-            report(StatusState.ERROR, request.command_id, str(exc))
-            return None
-
+        planner_qpos = generator.generate(command)
         chunk = resample_motion(planner_qpos, command_id=request.command_id)
         data, metadata = motion_to_arrow(chunk)
         node.send_output("motion", data, metadata=metadata)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 import yaml
 
@@ -37,16 +37,6 @@ OBSERVATION_DIMS = {
     "motion_joint_positions_wrists_4frame_step1": 24,
 }
 
-POLICY_NAMES = (
-    "token_state",
-    "his_base_angular_velocity_10frame_step1",
-    "his_body_joint_positions_10frame_step1",
-    "his_body_joint_velocities_10frame_step1",
-    "his_last_actions_10frame_step1",
-    "his_gravity_dir_10frame_step1",
-)
-
-
 def _g1_names(step: Literal[1, 5]) -> frozenset[str]:
     suffix = f"10frame_step{step}"
     return frozenset(
@@ -78,50 +68,17 @@ class ObservationLayout:
     def load(cls, path: Path) -> "ObservationLayout":
         with path.open(encoding="utf-8") as stream:
             document = yaml.safe_load(stream)
-        if not isinstance(document, dict):
-            raise ValueError(f"Invalid observation config: {path}")
-        encoder = document.get("encoder")
-        if not isinstance(encoder, dict):
-            raise ValueError("Observation config has no encoder section")
-
-        policy_names = _enabled_names(document.get("observations"), "observations")
-        encoder_names = _enabled_names(
-            encoder.get("encoder_observations"), "encoder.encoder_observations"
+        encoder = document["encoder"]
+        policy_names = _enabled_names(document["observations"])
+        encoder_names = _enabled_names(encoder["encoder_observations"])
+        g1_mode = next(
+            mode for mode in encoder["encoder_modes"] if mode["name"] == "g1"
         )
-        unknown = (set(policy_names) | set(encoder_names)) - OBSERVATION_DIMS.keys()
-        if unknown:
-            raise ValueError(f"Unknown SONIC observations: {unknown}")
-        if policy_names != POLICY_NAMES:
-            raise ValueError(f"Unexpected SONIC decoder observations: {policy_names}")
-
-        modes = encoder.get("encoder_modes")
-        if not isinstance(modes, list):
-            raise ValueError("Observation config has no encoder modes")
-        g1_modes = [mode for mode in modes if mode.get("name") == "g1"]
-        if len(g1_modes) != 1 or int(g1_modes[0].get("mode_id", -1)) != 0:
-            raise ValueError("Expected exactly one G1 encoder mode with mode_id 0")
-        required = frozenset(str(name) for name in g1_modes[0]["required_observations"])
-        unknown_required = required - set(encoder_names)
-        if unknown_required:
-            raise ValueError(
-                f"G1 mode requires disabled observations: {unknown_required}"
-            )
-        try:
-            g1_step = next(
-                step for step, names in G1_NAMES.items() if required == names
-            )
-        except StopIteration as exc:
-            raise ValueError(
-                f"Unsupported G1 observations: {sorted(required)}"
-            ) from exc
+        required = frozenset(g1_mode["required_observations"])
+        g1_step = next(step for step, names in G1_NAMES.items() if required == names)
 
         policy_dimension = sum(OBSERVATION_DIMS[name] for name in policy_names)
         encoder_dimension = int(encoder["dimension"])
-        if policy_dimension != 994 or encoder_dimension != 64:
-            raise ValueError(
-                "Unexpected SONIC dimensions: "
-                f"decoder={policy_dimension}, token={encoder_dimension}"
-            )
         return cls(
             policy_slices=_observation_slices(policy_names),
             encoder_slices=_observation_slices(encoder_names),
@@ -132,9 +89,7 @@ class ObservationLayout:
         )
 
 
-def _enabled_names(value: Any, section: str) -> tuple[str, ...]:
-    if not isinstance(value, list):
-        raise ValueError(f"Observation config section {section} is not a list")
+def _enabled_names(value: list[dict[str, object]]) -> tuple[str, ...]:
     return tuple(str(item["name"]) for item in value if item.get("enabled", False))
 
 
