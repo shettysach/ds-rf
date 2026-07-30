@@ -213,6 +213,7 @@ def test_sonic_stop_unwinds_the_runtime() -> None:
         controller(None)
 
     assert controller.stopped
+    assert not issubclass(sonic_node._StopRequested, Exception)
 
 
 def _raise(error: Exception):

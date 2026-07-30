@@ -16,7 +16,9 @@ from sonic.mjlab_env import SonicMjlabEnv
 from sonic.policy import SonicPolicy
 
 
-class _StopRequested(Exception):
+class _StopRequested(BaseException):
+    """Escape MJLab's policy-error boundary during a planned Dora stop."""
+
     pass
 
 
