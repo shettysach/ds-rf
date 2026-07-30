@@ -6,7 +6,7 @@ from typing import Any, cast
 from dora import Node
 
 from input_node.socket_server import CommandServer, command_socket_path
-from shared.messages import PlannerCommand, command_to_arrow, status_from_arrow
+from shared.messages import MotionCommandRequest, command_to_arrow, status_from_arrow
 
 
 def main() -> None:
@@ -31,7 +31,7 @@ def main() -> None:
             commands = server.poll()
             for text in commands:
                 try:
-                    command = PlannerCommand.parse(text)
+                    command = MotionCommandRequest.from_text(text)
                 except ValueError as exc:
                     message = f"Invalid command: {exc}"
                     print(message)

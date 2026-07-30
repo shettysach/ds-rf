@@ -41,13 +41,23 @@ Then open a second terminal in the repository and start the interactive client:
 uv run ds-rf-command
 ```
 
-Commands in the first phase are `stand`, `slow-walk`, `walk`, and `run`.
-Append `forward`, `backward`, `left`, or `right`, and optionally a speed:
+The command vocabulary follows the V2 `planner_sonic.onnx` interface. Run
+`help` in the client to list all 27 modes and the available directions. Append
+a direction and optionally a speed in meters per second:
 
 ```text
 walk forward
 walk left 0.4
+run forward-right speed=1.2
 stand
+```
+
+Movement and facing directions are independent. Height-aware modes accept
+named options:
+
+```text
+walk backward 0.5 facing=forward
+squat height=0.6
 ```
 
 The socket defaults to `/tmp/ds-rf-command-<uid>.sock`. Set

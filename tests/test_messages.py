@@ -2,7 +2,7 @@ import numpy as np
 
 from shared.messages import (
     MotionChunk,
-    PlannerCommand,
+    MotionCommandRequest,
     command_from_arrow,
     command_to_arrow,
     motion_from_arrow,
@@ -10,11 +10,9 @@ from shared.messages import (
 )
 
 
-def test_command_parser_and_arrow_round_trip() -> None:
-    command = PlannerCommand.parse("walk left 0.8")
-    assert command.mode == 2
-    assert command.movement_direction == (0.0, 1.0, 0.0)
-    assert command.target_vel == 0.8
+def test_command_request_arrow_round_trip() -> None:
+    command = MotionCommandRequest.from_text("walk left 0.8")
+    assert command.text == "walk left 0.8"
     assert command_from_arrow(command_to_arrow(command)) == command
 
 

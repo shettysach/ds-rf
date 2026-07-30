@@ -6,9 +6,9 @@ import pytest
 import torch
 
 from motion_gen.planner_sonic import PlannerSonic
+from motion_gen.planner_sonic_command import PlannerSonicCommand
 from motion_gen.resample import resample_motion
 from shared.g1 import DEFAULT_JOINT_POS_MJLAB
-from shared.messages import PlannerCommand
 from sonic.mjlab_env import SonicMjlabEnv
 from sonic.policy import RobotState, SonicPolicy
 
@@ -36,10 +36,13 @@ def test_real_checkpoints_generate_action_and_motion() -> None:
     assert completed is None
 
     planner = PlannerSonic(SONIC_DIR / "planner_sonic.onnx")
-    native = planner.generate(PlannerCommand.parse("walk forward 0.5"))
+    native = planner.generate(
+        PlannerSonicCommand.parse("walk forward 0.5", command_id="integration")
+    )
     chunk = resample_motion(native, command_id="integration")
-    assert native.qpos.shape == (64, 36)
-    assert chunk.qpos.shape == (106, 36)
+    assert 24 <= native.qpos.shape[0] <= 64
+    assert native.qpos.shape[0] % 4 == 0
+    assert chunk.qpos.shape == (native.qpos.shape[0] * 50 // 30, 36)
 
 
 @pytest.mark.skipif(not SONIC_DIR.is_dir(), reason="SONIC bundle is unavailable")

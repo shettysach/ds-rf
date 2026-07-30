@@ -3,10 +3,11 @@ from __future__ import annotations
 from dora import Node
 
 from motion_gen.planner_sonic import PlannerSonic
+from motion_gen.planner_sonic_command import PlannerSonicCommand
 from motion_gen.resample import resample_motion
 from shared.config import RuntimeConfig
 from shared.messages import (
-    PlannerCommand,
+    MotionCommandRequest,
     RuntimeStatus,
     command_from_arrow,
     motion_to_arrow,
@@ -22,7 +23,7 @@ def main() -> None:
     validate_onnx_device(cfg.device)
     node = Node()
     generator = PlannerSonic(cfg.planner_onnx, device=cfg.device)
-    pending: PlannerCommand | None = None
+    pending: MotionCommandRequest | None = None
     busy = False
     node.send_output(
         "status",
@@ -31,16 +32,19 @@ def main() -> None:
         ),
     )
 
-    def generate(command: PlannerCommand) -> None:
+    def generate(request: MotionCommandRequest) -> None:
         nonlocal busy
         busy = True
         node.send_output(
             "status",
             status_to_arrow(
-                RuntimeStatus("motion-gen", "generating", command.command_id)
+                RuntimeStatus("motion-gen", "generating", request.command_id)
             ),
         )
         try:
+            command = PlannerSonicCommand.parse(
+                request.text, command_id=request.command_id
+            )
             native = generator.generate(command)
             chunk = resample_motion(native, command_id=command.command_id)
             data, metadata = motion_to_arrow(chunk)
@@ -50,7 +54,7 @@ def main() -> None:
             node.send_output(
                 "status",
                 status_to_arrow(
-                    RuntimeStatus("motion-gen", "error", command.command_id, str(exc))
+                    RuntimeStatus("motion-gen", "error", request.command_id, str(exc))
                 ),
             )
 
@@ -60,18 +64,18 @@ def main() -> None:
         if event["type"] != "INPUT":
             continue
         if event["id"] == "command":
-            command = command_from_arrow(event["value"])
+            request = command_from_arrow(event["value"])
             if busy:
-                pending = command
+                pending = request
             else:
-                generate(command)
+                generate(request)
         elif event["id"] == "sonic_status":
             status = status_from_arrow(event["value"])
             if status.state == "done":
                 busy = False
                 if pending is not None:
-                    command, pending = pending, None
-                    generate(command)
+                    request, pending = pending, None
+                    generate(request)
 
 
 if __name__ == "__main__":

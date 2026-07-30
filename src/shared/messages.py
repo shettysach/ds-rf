@@ -10,65 +10,20 @@ import pyarrow as pa
 
 SCHEMA_VERSION = 1
 
-Direction = Literal["forward", "backward", "left", "right"]
 StatusState = Literal["ready", "generating", "playing", "done", "error"]
-
-_MODE_IDS = {"stand": 0, "slow-walk": 1, "walk": 2, "run": 3}
-_DIRECTIONS: dict[Direction, tuple[float, float, float]] = {
-    "forward": (1.0, 0.0, 0.0),
-    "backward": (-1.0, 0.0, 0.0),
-    "left": (0.0, 1.0, 0.0),
-    "right": (0.0, -1.0, 0.0),
-}
 
 
 @dataclass(frozen=True)
-class PlannerCommand:
+class MotionCommandRequest:
     command_id: str
-    mode: int
-    movement_direction: tuple[float, float, float]
-    facing_direction: tuple[float, float, float]
-    target_vel: float = -1.0
-    height: float = -1.0
-    random_seed: int = 1234
+    text: str
 
     @classmethod
-    def parse(cls, text: str) -> "PlannerCommand":
-        fields = text.strip().lower().split()
-        if not fields:
+    def from_text(cls, text: str) -> "MotionCommandRequest":
+        normalized = text.strip()
+        if not normalized:
             raise ValueError("Command is empty")
-        mode_name = fields.pop(0)
-        if mode_name not in _MODE_IDS:
-            choices = ", ".join(_MODE_IDS)
-            raise ValueError(
-                f"Unknown motion {mode_name!r}; expected one of: {choices}"
-            )
-
-        direction: Direction = "forward"
-        if fields and fields[0] in _DIRECTIONS:
-            direction = cast(Direction, fields.pop(0))
-        target_vel = -1.0
-        if fields:
-            try:
-                target_vel = float(fields.pop(0))
-            except ValueError as exc:
-                raise ValueError("Speed must be a number in meters per second") from exc
-            if target_vel <= 0.0:
-                raise ValueError("Speed must be positive")
-        if fields:
-            raise ValueError(f"Unexpected command fields: {' '.join(fields)}")
-
-        movement = (0.0, 0.0, 0.0) if mode_name == "stand" else _DIRECTIONS[direction]
-        # Keep the robot facing forward for lateral and backward motion. This exposes
-        # strafing/backward behavior without silently rotating the world frame.
-        facing = (1.0, 0.0, 0.0)
-        return cls(
-            command_id=uuid4().hex,
-            mode=_MODE_IDS[mode_name],
-            movement_direction=movement,
-            facing_direction=facing,
-            target_vel=target_vel,
-        )
+        return cls(command_id=uuid4().hex, text=normalized)
 
 
 @dataclass(frozen=True)
@@ -98,20 +53,15 @@ class RuntimeStatus:
     detail: str | None = None
 
 
-def command_to_arrow(command: PlannerCommand) -> pa.Array:
+def command_to_arrow(command: MotionCommandRequest) -> pa.Array:
     return _json_to_arrow(asdict(command))
 
 
-def command_from_arrow(value: pa.Array) -> PlannerCommand:
+def command_from_arrow(value: pa.Array) -> MotionCommandRequest:
     data = _json_from_arrow(value)
-    return PlannerCommand(
+    return MotionCommandRequest(
         command_id=str(data["command_id"]),
-        mode=int(data["mode"]),
-        movement_direction=_vec3(data["movement_direction"]),
-        facing_direction=_vec3(data["facing_direction"]),
-        target_vel=float(data["target_vel"]),
-        height=float(data["height"]),
-        random_seed=int(data["random_seed"]),
+        text=str(data["text"]),
     )
 
 
@@ -170,12 +120,6 @@ def _json_from_arrow(value: pa.Array) -> dict[str, Any]:
     if not isinstance(decoded, dict):
         raise ValueError("Expected a JSON object")
     return decoded
-
-
-def _vec3(value: Any) -> tuple[float, float, float]:
-    if not isinstance(value, (list, tuple)) or len(value) != 3:
-        raise ValueError(f"Expected a 3-vector, got {value!r}")
-    return (float(value[0]), float(value[1]), float(value[2]))
 
 
 def _validate_schema(metadata: dict[str, Any]) -> None:

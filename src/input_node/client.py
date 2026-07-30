@@ -4,6 +4,18 @@ import socket
 import threading
 
 from input_node.socket_server import command_socket_path
+from motion_gen.planner_sonic_command import (
+    PLANNER_SONIC_COMMAND_HELP,
+    PLANNER_SONIC_DIRECTIONS,
+    PLANNER_SONIC_MODES,
+)
+
+
+def _print_help() -> None:
+    print(PLANNER_SONIC_COMMAND_HELP)
+    print("Modes: " + " | ".join(PLANNER_SONIC_MODES))
+    print("Directions: " + " | ".join(PLANNER_SONIC_DIRECTIONS))
+    print("Examples: walk left 0.4 | run forward-right speed=1.2 | squat height=0.6")
 
 
 def _print_responses(connection: socket.socket) -> None:
@@ -32,12 +44,15 @@ def main() -> None:
         daemon=True,
     ).start()
     print(f"Connected to {path}")
-    print("Commands: stand | slow-walk | walk | run [direction] [speed]")
+    _print_help()
     try:
         while True:
             command = input("motion> ")
             if command.strip().lower() in {"quit", "exit"}:
                 break
+            if command.strip().lower() in {"help", "?"}:
+                _print_help()
+                continue
             connection.sendall(command.encode("utf-8") + b"\n")
     except (EOFError, KeyboardInterrupt, BrokenPipeError, ConnectionError):
         pass
@@ -47,4 +62,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

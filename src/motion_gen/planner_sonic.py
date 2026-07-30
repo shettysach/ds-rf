@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 
 from motion_gen.backend import NativeMotion
+from motion_gen.planner_sonic_command import PlannerSonicCommand
 from shared.g1 import G1_QPOS_SIZE, standing_qpos
-from shared.messages import PlannerCommand
 from shared.onnx import create_onnx_session
 
 PLANNER_FPS = 30
@@ -23,7 +23,7 @@ class PlannerSonic:
         initial = standing_qpos()
         self._context = np.tile(initial, (1, PLANNER_CONTEXT_FRAMES, 1))
 
-    def generate(self, command: PlannerCommand) -> NativeMotion:
+    def generate(self, command: PlannerSonicCommand) -> NativeMotion:
         outputs = self.session.run(
             None,
             {
@@ -40,10 +40,8 @@ class PlannerSonic:
                 "has_specific_target": np.zeros((1, 1), dtype=np.int64),
                 "specific_target_positions": np.zeros((1, 4, 3), dtype=np.float32),
                 "specific_target_headings": np.zeros((1, 4), dtype=np.float32),
-                # One-shot playback needs the longest supported reference window.
-                "allowed_pred_num_tokens": np.array(
-                    [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]], dtype=np.int64
-                ),
+                # Allow planner_sonic to select its learned 6-16 token horizon.
+                "allowed_pred_num_tokens": np.ones((1, 11), dtype=np.int64),
                 "height": np.array([command.height], dtype=np.float32),
             },
         )
