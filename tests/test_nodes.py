@@ -33,7 +33,6 @@ def _run_motion_gen(monkeypatch, events, generate):
         validate_motion_gen=lambda: None,
     )
     monkeypatch.setattr(motion_gen_node.RuntimeConfig, "from_env", lambda: config)
-    monkeypatch.setattr(motion_gen_node, "validate_onnx_device", lambda _: None)
     monkeypatch.setattr(motion_gen_node, "Node", lambda: node)
     monkeypatch.setattr(
         motion_gen_node, "PlannerSonic", lambda *args, **kwargs: generator

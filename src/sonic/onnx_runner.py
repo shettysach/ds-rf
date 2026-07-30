@@ -30,7 +30,6 @@ class FixedShapeOnnxModel:
             model_path,
             device=str(device),
             cuda_stream=cuda_stream,
-            require_full_device=device.type == "cuda",
         )
         self.input_name = self.session.get_inputs()[0].name
         self.output_name = self.session.get_outputs()[0].name

@@ -14,7 +14,6 @@ from shared.messages import (
     motion_from_arrow,
     status_to_arrow,
 )
-from shared.onnx import validate_onnx_device
 from sonic.mjlab_env import SonicMjlabEnv
 from sonic.policy import SonicPolicy
 
@@ -95,7 +94,6 @@ class SonicController:
 def main() -> None:
     cfg = RuntimeConfig.from_env()
     cfg.validate_sonic()
-    validate_onnx_device(cfg.device)
 
     node = Node()
     simulation = SonicMjlabEnv(device=cfg.device)

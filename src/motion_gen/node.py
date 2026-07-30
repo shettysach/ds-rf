@@ -15,13 +15,11 @@ from shared.messages import (
     status_from_arrow,
     status_to_arrow,
 )
-from shared.onnx import validate_onnx_device
 
 
 def main() -> None:
     cfg = RuntimeConfig.from_env()
     cfg.validate_motion_gen()
-    validate_onnx_device(cfg.device)
     node = Node()
     generator = PlannerSonic(cfg.planner_onnx, device=cfg.device)
     pending: MotionCommandRequest | None = None

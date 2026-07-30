@@ -1,8 +1,6 @@
 from pathlib import Path
 from types import SimpleNamespace
 
-import torch
-
 from shared import onnx as onnx_utils
 
 
@@ -24,14 +22,7 @@ def test_cuda_session_receives_device_and_user_stream(monkeypatch) -> None:
         captured["providers"] = providers
         return _FakeSession(providers)
 
-    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
-    monkeypatch.setattr(torch.cuda, "device_count", lambda: 4)
     monkeypatch.setattr(onnx_utils, "_load_cuda_libraries", lambda: None)
-    monkeypatch.setattr(
-        onnx_utils.ort,
-        "get_available_providers",
-        lambda: ["CUDAExecutionProvider", "CPUExecutionProvider"],
-    )
     monkeypatch.setattr(onnx_utils.ort, "InferenceSession", fake_session)
 
     session = onnx_utils.create_onnx_session(
