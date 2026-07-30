@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 
@@ -37,13 +37,42 @@ OBSERVATION_DIMS = {
     "motion_joint_positions_wrists_4frame_step1": 24,
 }
 
+POLICY_NAMES = (
+    "token_state",
+    "his_base_angular_velocity_10frame_step1",
+    "his_body_joint_positions_10frame_step1",
+    "his_body_joint_velocities_10frame_step1",
+    "his_last_actions_10frame_step1",
+    "his_gravity_dir_10frame_step1",
+)
+
+
+def _g1_names(step: Literal[1, 5]) -> frozenset[str]:
+    suffix = f"10frame_step{step}"
+    return frozenset(
+        {
+            "encoder_mode_4",
+            f"motion_joint_positions_{suffix}",
+            f"motion_joint_velocities_{suffix}",
+            f"motion_anchor_orientation_{suffix}",
+        }
+    )
+
+
+G1_NAMES: dict[Literal[1, 5], frozenset[str]] = {
+    1: _g1_names(1),
+    5: _g1_names(5),
+}
+
 
 @dataclass(frozen=True)
 class ObservationLayout:
-    policy_names: tuple[str, ...]
-    encoder_names: tuple[str, ...]
+    policy_slices: dict[str, slice]
+    encoder_slices: dict[str, slice]
+    policy_input_dimension: int
+    encoder_input_dimension: int
     encoder_dimension: int
-    required_g1: frozenset[str]
+    g1_step: Literal[1, 5]
 
     @classmethod
     def load(cls, path: Path) -> "ObservationLayout":
@@ -59,6 +88,12 @@ class ObservationLayout:
         encoder_names = _enabled_names(
             encoder.get("encoder_observations"), "encoder.encoder_observations"
         )
+        unknown = (set(policy_names) | set(encoder_names)) - OBSERVATION_DIMS.keys()
+        if unknown:
+            raise ValueError(f"Unknown SONIC observations: {unknown}")
+        if policy_names != POLICY_NAMES:
+            raise ValueError(f"Unexpected SONIC decoder observations: {policy_names}")
+
         modes = encoder.get("encoder_modes")
         if not isinstance(modes, list):
             raise ValueError("Observation config has no encoder modes")
@@ -71,46 +106,30 @@ class ObservationLayout:
             raise ValueError(
                 f"G1 mode requires disabled observations: {unknown_required}"
             )
-
-        layout = cls(
-            policy_names=policy_names,
-            encoder_names=encoder_names,
-            encoder_dimension=int(encoder["dimension"]),
-            required_g1=required,
-        )
-        layout._validate_names()
-        return layout
-
-    @property
-    def policy_input_dimension(self) -> int:
-        return sum(OBSERVATION_DIMS[name] for name in self.policy_names)
-
-    @property
-    def encoder_input_dimension(self) -> int:
-        return sum(OBSERVATION_DIMS[name] for name in self.encoder_names)
-
-    @property
-    def policy_slices(self) -> dict[str, slice]:
-        return _observation_slices(self.policy_names)
-
-    @property
-    def encoder_slices(self) -> dict[str, slice]:
-        return _observation_slices(self.encoder_names)
-
-    def _validate_names(self) -> None:
-        unknown = (set(self.policy_names) | set(self.encoder_names)) - set(
-            OBSERVATION_DIMS
-        )
-        if unknown:
-            raise ValueError(f"Unknown SONIC observations: {unknown}")
-        if self.policy_input_dimension != 994:
-            raise ValueError(
-                f"SONIC decoder layout is {self.policy_input_dimension}, expected 994"
+        try:
+            g1_step = next(
+                step for step, names in G1_NAMES.items() if required == names
             )
-        if self.encoder_dimension != 64:
+        except StopIteration as exc:
             raise ValueError(
-                f"SONIC token dimension is {self.encoder_dimension}, expected 64"
+                f"Unsupported G1 observations: {sorted(required)}"
+            ) from exc
+
+        policy_dimension = sum(OBSERVATION_DIMS[name] for name in policy_names)
+        encoder_dimension = int(encoder["dimension"])
+        if policy_dimension != 994 or encoder_dimension != 64:
+            raise ValueError(
+                "Unexpected SONIC dimensions: "
+                f"decoder={policy_dimension}, token={encoder_dimension}"
             )
+        return cls(
+            policy_slices=_observation_slices(policy_names),
+            encoder_slices=_observation_slices(encoder_names),
+            policy_input_dimension=policy_dimension,
+            encoder_input_dimension=sum(OBSERVATION_DIMS[n] for n in encoder_names),
+            encoder_dimension=encoder_dimension,
+            g1_step=g1_step,
+        )
 
 
 def _enabled_names(value: Any, section: str) -> tuple[str, ...]:

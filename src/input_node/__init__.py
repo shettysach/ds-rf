@@ -12,7 +12,6 @@ from shared.messages import MotionCommandRequest, command_to_arrow, status_from_
 def main() -> None:
     node = Node()
     server = CommandServer(command_socket_path())
-    server.start()
     print(f"Command socket ready: {server.path}")
 
     try:
@@ -37,7 +36,8 @@ def main() -> None:
                     print(message)
                     server.broadcast(message)
                     continue
-                node.send_output("command", command_to_arrow(command))
+                data, metadata = command_to_arrow(command)
+                node.send_output("command", data, metadata=metadata)
 
             if event is None and not commands:
                 time.sleep(0.01)

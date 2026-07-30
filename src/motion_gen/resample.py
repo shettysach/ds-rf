@@ -6,10 +6,9 @@ import numpy as np
 import torch
 from mjlab.utils.lab_api.math import quat_slerp
 
-from shared.messages import MotionChunk
+from shared.messages import SONIC_FPS, MotionChunk
 
 PLANNER_FPS = 30
-SONIC_FPS = 50
 
 
 def resample_motion(
@@ -37,4 +36,4 @@ def resample_motion(
             blend,
         )
 
-    return MotionChunk(command_id=command_id, qpos=output.numpy(), fps=SONIC_FPS)
+    return MotionChunk(command_id=command_id, qpos=output.numpy())

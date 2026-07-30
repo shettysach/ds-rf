@@ -13,7 +13,8 @@ from shared.messages import (
 def test_command_request_arrow_round_trip() -> None:
     command = MotionCommandRequest.from_text("walk left 0.8")
     assert command.text == "walk left 0.8"
-    assert command_from_arrow(command_to_arrow(command)) == command
+    value, metadata = command_to_arrow(command)
+    assert command_from_arrow(value, metadata) == command
 
 
 def test_motion_arrow_round_trip() -> None:
@@ -21,5 +22,4 @@ def test_motion_arrow_round_trip() -> None:
     value, metadata = motion_to_arrow(chunk)
     restored = motion_from_arrow(value, metadata)
     assert restored.command_id == "abc"
-    assert restored.fps == 50
     np.testing.assert_array_equal(restored.qpos, chunk.qpos)

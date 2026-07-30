@@ -2,46 +2,48 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from enum import IntEnum
 
-PLANNER_SONIC_MODES = {
-    "idle": 0,
-    "slow-walk": 1,
-    "walk": 2,
-    "run": 3,
-    "squat": 4,
-    "kneel-two-leg": 5,
-    "kneel-one-leg": 6,
-    "lying-facedown": 7,
-    "hand-crawling": 8,
-    "idle-boxing": 9,
-    "walk-boxing": 10,
-    "left-jab": 11,
-    "right-jab": 12,
-    "random-punches": 13,
-    "elbow-crawling": 14,
-    "left-hook": 15,
-    "right-hook": 16,
-    "happy": 17,
-    "stealth": 18,
-    "injured": 19,
-    "careful": 20,
-    "object-carrying": 21,
-    "crouch": 22,
-    "happy-dance": 23,
-    "zombie": 24,
-    "point": 25,
-    "scared": 26,
-}
+Vector3 = tuple[float, float, float]
 
-_MODE_ALIASES = {
-    "stand": "idle",
-    "slowwalk": "slow-walk",
-    "kneel": "kneel-one-leg",
-    "crawl": "hand-crawling",
-}
+
+class PlannerMode(IntEnum):
+    IDLE = 0
+    SLOW_WALK = 1
+    WALK = 2
+    RUN = 3
+    SQUAT = 4
+    KNEEL_TWO_LEG = 5
+    KNEEL_ONE_LEG = 6
+    LYING_FACEDOWN = 7
+    HAND_CRAWLING = 8
+    IDLE_BOXING = 9
+    WALK_BOXING = 10
+    LEFT_JAB = 11
+    RIGHT_JAB = 12
+    RANDOM_PUNCHES = 13
+    ELBOW_CRAWLING = 14
+    LEFT_HOOK = 15
+    RIGHT_HOOK = 16
+    HAPPY = 17
+    STEALTH = 18
+    INJURED = 19
+    CAREFUL = 20
+    OBJECT_CARRYING = 21
+    CROUCH = 22
+    HAPPY_DANCE = 23
+    ZOMBIE = 24
+    POINT = 25
+    SCARED = 26
+
 
 _DIAGONAL = 1.0 / math.sqrt(2.0)
-PLANNER_SONIC_DIRECTIONS = {
+
+
+PLANNER_SONIC_MODES: dict[str, PlannerMode] = {
+    mode.name.lower().replace("_", "-"): mode for mode in PlannerMode
+}
+PLANNER_SONIC_DIRECTIONS: dict[str, Vector3] = {
     "forward": (1.0, 0.0, 0.0),
     "backward": (-1.0, 0.0, 0.0),
     "left": (0.0, 1.0, 0.0),
@@ -52,6 +54,22 @@ PLANNER_SONIC_DIRECTIONS = {
     "backward-right": (-_DIAGONAL, -_DIAGONAL, 0.0),
 }
 
+_MODE_ALIASES = {
+    "stand": PlannerMode.IDLE,
+    "slowwalk": PlannerMode.SLOW_WALK,
+    "kneel": PlannerMode.KNEEL_ONE_LEG,
+    "crawl": PlannerMode.HAND_CRAWLING,
+}
+_STATIONARY_MODES = {
+    PlannerMode.IDLE,
+    PlannerMode.SQUAT,
+    PlannerMode.KNEEL_TWO_LEG,
+    PlannerMode.KNEEL_ONE_LEG,
+    PlannerMode.LYING_FACEDOWN,
+    PlannerMode.IDLE_BOXING,
+}
+_OPTIONS = {"facing", "speed", "height"}
+
 PLANNER_SONIC_COMMAND_HELP = (
     "Usage: <mode> [direction] [speed] [facing=<direction>] [height=<meters>]"
 )
@@ -59,87 +77,75 @@ PLANNER_SONIC_COMMAND_HELP = (
 
 @dataclass(frozen=True)
 class PlannerSonicCommand:
-    command_id: str
-    mode: int
-    movement_direction: tuple[float, float, float]
-    facing_direction: tuple[float, float, float]
+    mode: PlannerMode
+    movement_direction: Vector3
+    facing_direction: Vector3
     target_vel: float = -1.0
     height: float = -1.0
     random_seed: int = 1234
 
     @classmethod
-    def parse(cls, text: str, *, command_id: str) -> "PlannerSonicCommand":
+    def parse(cls, text: str) -> PlannerSonicCommand:
         fields = text.strip().lower().replace("_", "-").split()
         if not fields:
             raise ValueError("Command is empty")
 
-        requested_mode = fields.pop(0)
-        mode_name = _MODE_ALIASES.get(requested_mode, requested_mode)
-        if mode_name not in PLANNER_SONIC_MODES:
-            choices = ", ".join(PLANNER_SONIC_MODES)
-            raise ValueError(
-                f"Unknown planner_sonic mode {requested_mode!r}; expected one of: "
-                f"{choices}"
-            )
+        requested_mode, *arguments = fields
+        mode = _MODE_ALIASES.get(requested_mode)
+        if mode is None:
+            try:
+                mode = PLANNER_SONIC_MODES[requested_mode]
+            except KeyError as exc:
+                choices = ", ".join(PLANNER_SONIC_MODES)
+                raise ValueError(
+                    f"Unknown planner_sonic mode {requested_mode!r}; "
+                    f"expected one of: {choices}"
+                ) from exc
 
-        direction_name: str | None = None
-        facing_name = "forward"
-        target_vel = -1.0
-        height = -1.0
-        speed_was_set = False
-        height_was_set = False
+        options: dict[str, str] = {}
+        positionals: list[str] = []
+        for argument in arguments:
+            if "=" not in argument:
+                positionals.append(argument)
+                continue
+            name, value = argument.split("=", 1)
+            if name not in _OPTIONS:
+                raise ValueError(f"Unknown command option: {name!r}")
+            if name in options:
+                raise ValueError(f"{name.capitalize()} was provided more than once")
+            options[name] = value
 
-        for field in fields:
-            if field in PLANNER_SONIC_DIRECTIONS and direction_name is None:
-                direction_name = field
-                continue
-            if field.startswith("facing="):
-                facing_name = field.partition("=")[2]
-                if facing_name not in PLANNER_SONIC_DIRECTIONS:
-                    raise ValueError(f"Unknown facing direction: {facing_name!r}")
-                continue
-            if field.startswith("speed="):
-                if speed_was_set:
-                    raise ValueError("Speed was provided more than once")
-                target_vel = _positive_float(field.partition("=")[2], "Speed")
-                speed_was_set = True
-                continue
-            if field.startswith("height="):
-                if height_was_set:
-                    raise ValueError("Height was provided more than once")
-                height = _nonnegative_float(field.partition("=")[2], "Height")
-                height_was_set = True
-                continue
-            if not speed_was_set:
-                target_vel = _positive_float(field, "Speed")
-                speed_was_set = True
-                continue
-            raise ValueError(f"Unexpected command field: {field}")
+        direction: Vector3 | None = None
+        speed: str | None = options.get("speed")
+        for value in positionals:
+            if direction is None and value in PLANNER_SONIC_DIRECTIONS:
+                direction = PLANNER_SONIC_DIRECTIONS[value]
+            elif speed is None:
+                speed = value
+            else:
+                raise ValueError(f"Unexpected command field: {value}")
 
-        if direction_name is None:
-            movement = (
-                (0.0, 0.0, 0.0)
-                if mode_name
-                in {
-                    "idle",
-                    "squat",
-                    "kneel-two-leg",
-                    "kneel-one-leg",
-                    "lying-facedown",
-                    "idle-boxing",
-                }
-                else PLANNER_SONIC_DIRECTIONS["forward"]
-            )
-        else:
-            movement = PLANNER_SONIC_DIRECTIONS[direction_name]
+        facing_name = options.get("facing", "forward")
+        try:
+            facing = PLANNER_SONIC_DIRECTIONS[facing_name]
+        except KeyError as exc:
+            raise ValueError(f"Unknown facing direction: {facing_name!r}") from exc
 
+        movement = (0.0, 0.0, 0.0)
+        if mode not in _STATIONARY_MODES:
+            movement = PLANNER_SONIC_DIRECTIONS["forward"]
+        if direction is not None:
+            movement = direction
         return cls(
-            command_id=command_id,
-            mode=PLANNER_SONIC_MODES[mode_name],
+            mode=mode,
             movement_direction=movement,
-            facing_direction=PLANNER_SONIC_DIRECTIONS[facing_name],
-            target_vel=target_vel,
-            height=height,
+            facing_direction=facing,
+            target_vel=_positive_float(speed, "Speed") if speed is not None else -1.0,
+            height=(
+                _nonnegative_float(options["height"], "Height")
+                if "height" in options
+                else -1.0
+            ),
         )
 
 

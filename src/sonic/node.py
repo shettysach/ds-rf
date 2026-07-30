@@ -10,6 +10,7 @@ from dora import Node
 from shared.config import RuntimeConfig
 from shared.messages import (
     RuntimeStatus,
+    StatusState,
     motion_from_arrow,
     status_to_arrow,
 )
@@ -32,15 +33,9 @@ class SonicController:
         self.on_stop: Callable[[], None] | None = None
         stream = self.simulation.cuda_stream_ptr
         stream_detail = "none" if stream is None else hex(stream)
-        self.node.send_output(
-            "status",
-            status_to_arrow(
-                RuntimeStatus(
-                    "sonic",
-                    "ready",
-                    detail=f"device={simulation.device}, stream={stream_detail}",
-                )
-            ),
+        self._report(
+            StatusState.READY,
+            detail=f"device={simulation.device}, stream={stream_detail}",
         )
 
     def __call__(self, obs: Any) -> torch.Tensor:
@@ -50,10 +45,7 @@ class SonicController:
             state = self.simulation.robot_state()
             action, completed = self.policy.infer(state)
         if completed is not None:
-            self.node.send_output(
-                "status",
-                status_to_arrow(RuntimeStatus("sonic", "done", completed)),
-            )
+            self._report(StatusState.DONE, completed)
         return action
 
     def reset(self) -> None:
@@ -78,30 +70,26 @@ class SonicController:
             try:
                 chunk = motion_from_arrow(event["value"], metadata)
             except (KeyError, TypeError, ValueError) as exc:
-                self.node.send_output(
-                    "status",
-                    status_to_arrow(
-                        RuntimeStatus("sonic", "error", command_id, str(exc))
-                    ),
-                )
+                self._report(StatusState.ERROR, command_id, str(exc))
                 continue
 
             state = self.simulation.robot_state()
             try:
                 self.policy.load_motion(chunk, state.root_quat_w)
             except ValueError as exc:
-                self.node.send_output(
-                    "status",
-                    status_to_arrow(
-                        RuntimeStatus("sonic", "error", chunk.command_id, str(exc))
-                    ),
-                )
+                self._report(StatusState.ERROR, chunk.command_id, str(exc))
                 continue
 
-            self.node.send_output(
-                "status",
-                status_to_arrow(RuntimeStatus("sonic", "playing", chunk.command_id)),
-            )
+            self._report(StatusState.PLAYING, chunk.command_id)
+
+    def _report(
+        self,
+        state: StatusState,
+        command_id: str | None = None,
+        detail: str | None = None,
+    ) -> None:
+        status = RuntimeStatus("sonic", state, command_id, detail)
+        self.node.send_output("status", status_to_arrow(status))
 
 
 def main() -> None:

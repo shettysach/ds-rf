@@ -20,16 +20,15 @@ def _print_help() -> None:
 
 def _print_responses(connection: socket.socket) -> None:
     try:
-        with connection.makefile("r", encoding="utf-8") as responses:
-            for response in responses:
-                print(f"\n{response.rstrip()}", flush=True)
+        while response := connection.recv(4096):
+            print(f"\n{response.decode('utf-8')}", flush=True)
     except (ConnectionError, OSError):
         pass
 
 
 def main() -> None:
     path = command_socket_path()
-    connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    connection = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
     try:
         connection.connect(str(path))
     except OSError as exc:
@@ -47,13 +46,15 @@ def main() -> None:
     _print_help()
     try:
         while True:
-            command = input("motion> ")
-            if command.strip().lower() in {"quit", "exit"}:
+            command = input("motion> ").strip()
+            normalized = command.lower()
+            if normalized in {"quit", "exit"}:
                 break
-            if command.strip().lower() in {"help", "?"}:
+            if normalized in {"help", "?"}:
                 _print_help()
                 continue
-            connection.sendall(command.encode("utf-8") + b"\n")
+            if command:
+                connection.send(command.encode("utf-8"))
     except (EOFError, KeyboardInterrupt, BrokenPipeError, ConnectionError):
         pass
     finally:

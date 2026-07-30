@@ -19,17 +19,17 @@ def _poll_until_commands(server: CommandServer) -> list[str]:
 def test_command_server_receives_lines_and_broadcasts(tmp_path: Path) -> None:
     path = tmp_path / "command.sock"
     server = CommandServer(path)
-    server.start()
-    client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    client = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
     try:
         client.connect(str(path))
         server.poll()
-        client.sendall(b"walk forward\nrun left 1.2\n")
+        client.send(b"walk forward")
+        client.send(b"run left 1.2")
 
         assert _poll_until_commands(server) == ["walk forward", "run left 1.2"]
 
         server.broadcast("[motion-gen] generating")
-        assert client.recv(1024) == b"[motion-gen] generating\n"
+        assert client.recv(1024) == b"[motion-gen] generating"
     finally:
         client.close()
         server.close()
@@ -40,9 +40,7 @@ def test_command_server_receives_lines_and_broadcasts(tmp_path: Path) -> None:
 def test_command_server_refuses_to_replace_regular_file(tmp_path: Path) -> None:
     path = tmp_path / "command.sock"
     path.write_text("keep me")
-    server = CommandServer(path)
-
     with pytest.raises(RuntimeError, match="Refusing to replace non-socket"):
-        server.start()
+        CommandServer(path)
 
     assert path.read_text() == "keep me"

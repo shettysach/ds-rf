@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -20,7 +19,7 @@ from shared.g1 import (
     SONIC_FROM_MJLAB,
     standing_qpos,
 )
-from shared.messages import MotionChunk
+from shared.messages import SONIC_FPS, MotionChunk
 from sonic.observations import ObservationLayout
 from sonic.onnx_runner import FixedShapeOnnxModel
 
@@ -35,28 +34,6 @@ class RobotState:
     projected_gravity_b: TensorLike
     joint_pos: TensorLike
     joint_vel: TensorLike
-
-    def __post_init__(self) -> None:
-        expected = {
-            "root_quat_w": (4,),
-            "root_ang_vel_b": (3,),
-            "projected_gravity_b": (3,),
-            "joint_pos": (29,),
-            "joint_vel": (29,),
-        }
-        for name, shape in expected.items():
-            actual = tuple(getattr(self, name).shape)
-            if actual != shape:
-                raise ValueError(f"{name} has shape {actual}; expected {shape}")
-
-
-@dataclass(frozen=True)
-class _HistoryState:
-    angular_velocity: torch.Tensor
-    joint_position: torch.Tensor
-    joint_velocity: torch.Tensor
-    last_action: torch.Tensor
-    gravity: torch.Tensor
 
 
 class MotionReference:
@@ -79,8 +56,6 @@ class MotionReference:
         self._command_id: str | None = None
 
     def load(self, chunk: MotionChunk, robot_quat_w: TensorLike) -> None:
-        if chunk.fps != 50:
-            raise ValueError(f"SONIC requires a 50 Hz reference, got {chunk.fps} Hz")
         self._qpos = torch.as_tensor(
             chunk.qpos, dtype=torch.float32, device=self.device
         ).contiguous()
@@ -88,7 +63,7 @@ class MotionReference:
             raise ValueError("SONIC requires at least two reference frames")
         natural_positions = self._qpos[:, 7:]
         velocities = torch.empty_like(natural_positions)
-        velocities[:-1] = torch.diff(natural_positions, dim=0) * chunk.fps
+        velocities[:-1] = torch.diff(natural_positions, dim=0) * SONIC_FPS
         velocities[-1] = velocities[-2]
         self._joint_vel = velocities
 
@@ -105,11 +80,12 @@ class MotionReference:
             self._future_offsets * step + self._frame,
             max=len(self._qpos) - 1,
         )
-        natural_positions = self._qpos.index_select(0, indices)[:, 7:]
+        qpos = self._qpos.index_select(0, indices)
+        natural_positions = qpos[:, 7:]
         natural_velocities = self._joint_vel.index_select(0, indices)
         positions = natural_positions.index_select(1, self._sonic_from_mjlab)
         velocities = natural_velocities.index_select(1, self._sonic_from_mjlab)
-        reference_quats = self._qpos.index_select(0, indices)[:, 3:7]
+        reference_quats = qpos[:, 3:7]
         aligned_quats = quat_mul(
             self._heading_delta.expand_as(reference_quats), reference_quats
         )
@@ -167,12 +143,10 @@ class SonicPolicy:
         )
         self._g1_encoder_mode = torch.zeros(4, dtype=torch.float32, device=self.device)
         self.reference = MotionReference(self.device)
-        self._history: deque[_HistoryState] = deque(maxlen=HISTORY_FRAMES)
         self._last_action = torch.zeros(29, dtype=torch.float32, device=self.device)
 
     def reset(self) -> None:
         self.reference = MotionReference(self.device)
-        self._history.clear()
         self._last_action.zero_()
         self.encoder.input.zero_()
         self.decoder.input.zero_()
@@ -182,59 +156,37 @@ class SonicPolicy:
 
     def infer(self, state: RobotState) -> tuple[torch.Tensor, str | None]:
         root_quat = _as_tensor(state.root_quat_w, self.device)
-        history_state = _HistoryState(
-            angular_velocity=_as_tensor(state.root_ang_vel_b, self.device).clone(),
-            joint_position=(
-                _as_tensor(state.joint_pos, self.device) - self._default_joint_pos
-            ).index_select(0, self._sonic_from_mjlab),
-            joint_velocity=_as_tensor(state.joint_vel, self.device)
-            .index_select(0, self._sonic_from_mjlab)
-            .clone(),
-            last_action=self._last_action.clone(),
-            gravity=_as_tensor(state.projected_gravity_b, self.device).clone(),
+        joint_position = (
+            _as_tensor(state.joint_pos, self.device) - self._default_joint_pos
+        ).index_select(0, self._sonic_from_mjlab)
+        joint_velocity = _as_tensor(state.joint_vel, self.device).index_select(
+            0, self._sonic_from_mjlab
         )
-        self._history.append(history_state)
-        while len(self._history) < HISTORY_FRAMES:
-            self._history.appendleft(self._zero_history())
-
-        step = (
-            5
-            if "motion_joint_positions_10frame_step5" in self.layout.required_g1
-            else 1
+        positions, velocities, reference_quats = self.reference.window(
+            step=self.layout.g1_step
         )
-        positions, velocities, reference_quats = self.reference.window(step=step)
         relative_quats = quat_mul(
             quat_conjugate(root_quat).expand_as(reference_quats), reference_quats
         )
         orientation_6d = matrix_from_quat(relative_quats)[..., :2]
-        suffix = f"10frame_step{step}"
+        suffix = f"10frame_step{self.layout.g1_step}"
         self._copy_encoder("encoder_mode_4", self._g1_encoder_mode)
         self._copy_encoder(f"motion_joint_positions_{suffix}", positions)
         self._copy_encoder(f"motion_joint_velocities_{suffix}", velocities)
         self._copy_encoder(f"motion_anchor_orientation_{suffix}", orientation_6d)
         token = self.encoder.run()
 
-        history = tuple(self._history)
         self._copy_policy("token_state", token)
-        self._copy_policy(
+        self._append_history(
             "his_base_angular_velocity_10frame_step1",
-            torch.stack([item.angular_velocity for item in history]),
+            _as_tensor(state.root_ang_vel_b, self.device),
         )
-        self._copy_policy(
-            "his_body_joint_positions_10frame_step1",
-            torch.stack([item.joint_position for item in history]),
-        )
-        self._copy_policy(
-            "his_body_joint_velocities_10frame_step1",
-            torch.stack([item.joint_velocity for item in history]),
-        )
-        self._copy_policy(
-            "his_last_actions_10frame_step1",
-            torch.stack([item.last_action for item in history]),
-        )
-        self._copy_policy(
+        self._append_history("his_body_joint_positions_10frame_step1", joint_position)
+        self._append_history("his_body_joint_velocities_10frame_step1", joint_velocity)
+        self._append_history("his_last_actions_10frame_step1", self._last_action)
+        self._append_history(
             "his_gravity_dir_10frame_step1",
-            torch.stack([item.gravity for item in history]),
+            _as_tensor(state.projected_gravity_b, self.device),
         )
         action_sonic = self.decoder.run().reshape(29)
         if self.device.type == "cpu" and not bool(torch.isfinite(action_sonic).all()):
@@ -250,14 +202,12 @@ class SonicPolicy:
     def _copy_policy(self, name: str, value: torch.Tensor) -> None:
         self.decoder.input[0, self._policy_slices[name]].copy_(value.reshape(-1))
 
-    def _zero_history(self) -> _HistoryState:
-        return _HistoryState(
-            angular_velocity=torch.zeros(3, device=self.device),
-            joint_position=torch.zeros(29, device=self.device),
-            joint_velocity=torch.zeros(29, device=self.device),
-            last_action=torch.zeros(29, device=self.device),
-            gravity=torch.zeros(3, device=self.device),
+    def _append_history(self, name: str, value: torch.Tensor) -> None:
+        history = self.decoder.input[0, self._policy_slices[name]].view(
+            HISTORY_FRAMES, -1
         )
+        history[:-1].copy_(history[1:].clone())
+        history[-1].copy_(value.reshape(-1))
 
 
 def _as_tensor(value: TensorLike, device: torch.device) -> torch.Tensor:

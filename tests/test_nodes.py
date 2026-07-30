@@ -38,7 +38,9 @@ def _run_motion_gen(monkeypatch, events, generate):
     monkeypatch.setattr(
         motion_gen_node, "PlannerSonic", lambda *args, **kwargs: generator
     )
-    monkeypatch.setattr(motion_gen_node, "command_from_arrow", lambda value: value)
+    monkeypatch.setattr(
+        motion_gen_node, "command_from_arrow", lambda value, metadata: value
+    )
     monkeypatch.setattr(motion_gen_node, "status_from_arrow", lambda value: value)
     monkeypatch.setattr(
         motion_gen_node, "resample_motion", lambda motion, **kwargs: motion
@@ -51,10 +53,10 @@ def _run_motion_gen(monkeypatch, events, generate):
 def test_sonic_error_releases_pending_motion(monkeypatch) -> None:
     first = MotionCommandRequest("first", "walk")
     second = MotionCommandRequest("second", "run")
-    generated: list[str] = []
+    generated: list[int] = []
 
     def generate(command):
-        generated.append(command.command_id)
+        generated.append(command.mode)
         return object()
 
     _run_motion_gen(
@@ -71,7 +73,7 @@ def test_sonic_error_releases_pending_motion(monkeypatch) -> None:
         generate,
     )
 
-    assert generated == ["first", "second"]
+    assert generated == [2, 3]
 
 
 def test_motion_gen_does_not_swallow_unexpected_errors(monkeypatch) -> None:

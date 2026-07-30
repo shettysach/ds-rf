@@ -13,6 +13,5 @@ def test_resample_64_frames_to_106_without_mutating_input() -> None:
     chunk = resample_motion(qpos, command_id="command")
 
     assert chunk.qpos.shape == (106, 36)
-    assert chunk.fps == 50
     np.testing.assert_array_equal(qpos, original)
     np.testing.assert_allclose(np.linalg.norm(chunk.qpos[:, 3:7], axis=1), 1.0)
