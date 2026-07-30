@@ -3,8 +3,8 @@ from __future__ import annotations
 from dora import Node
 
 from motion_gen.planner_sonic import PlannerSonic
-from motion_gen.planner_sonic_command import PlannerSonicCommand
 from motion_gen.resample import resample_motion
+from nodes.motion_gen_command import parse_motion_command
 from shared.config import MotionGenConfig
 from shared.messages import (
     MotionCommandRequest,
@@ -36,7 +36,7 @@ def main() -> None:
 
     def generate(request: MotionCommandRequest) -> str | None:
         try:
-            command = PlannerSonicCommand.parse(request.text)
+            command = parse_motion_command(request.text)
         except ValueError as exc:
             report(StatusState.ERROR, request.command_id, str(exc))
             return None

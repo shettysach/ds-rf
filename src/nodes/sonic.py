@@ -31,11 +31,9 @@ class SonicController:
         self.simulation = simulation
         self.policy = policy
         self.stopped = False
-        stream = self.simulation.cuda_stream_ptr
-        stream_detail = "none" if stream is None else hex(stream)
         self._report(
             StatusState.READY,
-            detail=f"device={simulation.device}, stream={stream_detail}",
+            detail=f"device={simulation.device}",
         )
 
     def __call__(self, obs: object) -> torch.Tensor:

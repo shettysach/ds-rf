@@ -29,9 +29,8 @@ def resample_motion(
         blend = float(source_position - index_0)
         output[output_index] = torch.lerp(qpos[index_0], qpos[index_1], blend)
         # NOTE: MJLab's quat_slerp may negate q2 in place for the shortest path.
-        # Clone both source views so resampling cannot mutate the stored trajectory.
         output[output_index, 3:7] = quat_slerp(
-            qpos[index_0, 3:7].clone(),
+            qpos[index_0, 3:7],
             qpos[index_1, 3:7].clone(),
             blend,
         )

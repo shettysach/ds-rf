@@ -4,18 +4,19 @@ import socket
 import threading
 
 from input_node.socket_server import command_socket_path
-from motion_gen.planner_sonic_command import (
-    PLANNER_SONIC_COMMAND_HELP,
-    PLANNER_SONIC_DIRECTIONS,
-    PLANNER_SONIC_MODES,
+from nodes.motion_gen_command import (
+    MOTION_COMMAND_EXAMPLES,
+    MOTION_COMMAND_USAGE,
+    MOTION_DIRECTIONS,
+    MOTION_MODES,
 )
 
 
 def _print_help() -> None:
-    print(PLANNER_SONIC_COMMAND_HELP)
-    print("Modes: " + " | ".join(PLANNER_SONIC_MODES))
-    print("Directions: " + " | ".join(PLANNER_SONIC_DIRECTIONS))
-    print("Examples: walk left 0.4 | run forward-right speed=1.2 | squat height=0.6")
+    print(MOTION_COMMAND_USAGE)
+    print("Modes: " + " | ".join(MOTION_MODES))
+    print("Directions: " + " | ".join(MOTION_DIRECTIONS))
+    print(MOTION_COMMAND_EXAMPLES)
 
 
 def _print_responses(connection: socket.socket) -> None:

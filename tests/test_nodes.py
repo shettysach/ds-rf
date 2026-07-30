@@ -5,8 +5,8 @@ from types import SimpleNamespace
 import pyarrow as pa
 import pytest
 
-import motion_gen.node as motion_gen_node
-import sonic.node as sonic_node
+import nodes.motion_gen as motion_gen_node
+import nodes.sonic as sonic_node
 from shared.messages import MotionCommandRequest, RuntimeStatus, status_from_arrow
 
 
@@ -100,7 +100,7 @@ def test_sonic_error_preserves_motion_command_id(monkeypatch) -> None:
             }
         ]
     )
-    simulation = SimpleNamespace(device="cpu", cuda_stream_ptr=None)
+    simulation = SimpleNamespace(device="cpu")
     controller = sonic_node.SonicController(node, simulation, SimpleNamespace())
     monkeypatch.setattr(
         sonic_node,
@@ -118,7 +118,6 @@ def test_sonic_stop_unwinds_the_runtime() -> None:
     node = _Node([{"type": "STOP"}])
     simulation = SimpleNamespace(
         device="cpu",
-        cuda_stream_ptr=None,
         compute_context=nullcontext,
     )
     controller = sonic_node.SonicController(node, simulation, SimpleNamespace())

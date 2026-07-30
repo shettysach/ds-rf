@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 
 import torch
@@ -18,19 +17,11 @@ from shared.g1 import (
     standing_qpos,
 )
 from shared.messages import SONIC_FPS, MotionChunk
+from sonic.mjlab_env import RobotState
 from sonic.observations import ObservationLayout
 from sonic.onnx_runner import OnnxModel
 
 HISTORY_FRAMES = 10
-
-
-@dataclass(frozen=True)
-class RobotState:
-    root_quat_w: torch.Tensor
-    root_ang_vel_b: torch.Tensor
-    projected_gravity_b: torch.Tensor
-    joint_pos: torch.Tensor
-    joint_vel: torch.Tensor
 
 
 class MotionReference:

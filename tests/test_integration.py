@@ -3,13 +3,14 @@ from pathlib import Path
 import onnxruntime as ort
 import pytest
 import torch
+from sonic.robot_state import RobotState
 
 from motion_gen.planner_sonic import PlannerSonic
-from motion_gen.planner_sonic_command import PlannerSonicCommand
 from motion_gen.resample import resample_motion
+from nodes.motion_gen_command import parse_motion_command
 from shared.g1 import DEFAULT_JOINT_POS_MJLAB
 from sonic.mjlab_env import SonicMjlabEnv
-from sonic.policy import RobotState, SonicPolicy
+from sonic.policy import SonicPolicy
 
 SONIC_DIR = Path("/tmp/GEAR-SONIC")
 
@@ -38,7 +39,7 @@ def test_real_checkpoints_generate_action_and_motion() -> None:
     assert completed is None
 
     planner = PlannerSonic(SONIC_DIR / "planner_sonic.onnx")
-    planner_qpos = planner.generate(PlannerSonicCommand.parse("walk forward 0.5"))
+    planner_qpos = planner.generate(parse_motion_command("walk forward 0.5"))
     chunk = resample_motion(planner_qpos, command_id="integration")
     assert 24 <= planner_qpos.shape[0] <= 64
     assert planner_qpos.shape[0] % 4 == 0
@@ -71,9 +72,10 @@ def test_mjlab_and_sonic_share_one_cuda_stream() -> None:
             )
             action, _ = policy.infer(simulation.robot_state())
 
-        assert simulation.cuda_stream_ptr is not None
-        assert policy.encoder.cuda_stream_ptr == simulation.cuda_stream_ptr
-        assert policy.decoder.cuda_stream_ptr == simulation.cuda_stream_ptr
+        assert simulation.cuda_stream is not None
+        stream_ptr = int(simulation.cuda_stream.cuda_stream)
+        assert policy.encoder.cuda_stream_ptr == stream_ptr
+        assert policy.decoder.cuda_stream_ptr == stream_ptr
         assert action.device == torch.device("cuda:0")
         simulation.step(action)
         assert simulation.unwrapped.common_step_counter == 1
