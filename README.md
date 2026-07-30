@@ -9,6 +9,17 @@ Runs a three-node Dora dataflow for Unitree G1:
 The initial motion generator is `planner_sonic.onnx`. The motion boundary is
 independent of that backend so Kimodo or ARDY can replace it later.
 
+## DORA
+
+```bash
+  cargo install \
+    --git https://github.com/dora-rs/dora.git \
+    --tag v1.0.0-rc.4 \
+    --locked \
+    --force \
+    dora-cli
+```
+
 ## CPU setup
 
 ```bash

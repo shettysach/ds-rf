@@ -9,7 +9,7 @@ description = "Dora pipeline for G1 motion generation and SONIC control in MJLab
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [
-    "dora-rs==0.5.0",
+    "dora-rs==1.0.0rc4",
     "numpy>=2.4.0,<2.5",
     "pyarrow>=20",
     "pyyaml>=6.0.2",

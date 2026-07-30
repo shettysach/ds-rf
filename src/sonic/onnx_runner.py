@@ -8,7 +8,7 @@ import torch
 from shared.onnx import create_onnx_session
 
 
-class FixedShapeOnnxModel:
+class OnnxModel:
     """ONNX model backed by stable Torch buffers and CUDA I/O binding."""
 
     def __init__(
@@ -33,24 +33,13 @@ class FixedShapeOnnxModel:
         )
         self.input_name = self.session.get_inputs()[0].name
         self.output_name = self.session.get_outputs()[0].name
-        self._validate_signature(input_shape, output_shape)
-        self._binding = self._create_cuda_binding() if device.type == "cuda" else None
+        self._binding = self._create_binding()
 
-    def run(self) -> torch.Tensor:
-        if self._binding is not None:
-            self.session.run_with_iobinding(self._binding)
-        else:
-            result = self.session.run(
-                [self.output_name], {self.input_name: self.input.numpy()}
-            )[0]
-            self.output.copy_(torch.from_numpy(np.asarray(result, dtype=np.float32)))
-        return self.output
-
-    def _create_cuda_binding(self):
+    def _create_binding(self):
         binding = self.session.io_binding()
         binding.bind_input(
             self.input_name,
-            "cuda",
+            self.device.type,
             0,
             np.float32,
             tuple(self.input.shape),
@@ -58,7 +47,7 @@ class FixedShapeOnnxModel:
         )
         binding.bind_output(
             self.output_name,
-            "cuda",
+            self.device.type,
             0,
             np.float32,
             tuple(self.output.shape),
@@ -66,18 +55,6 @@ class FixedShapeOnnxModel:
         )
         return binding
 
-    def _validate_signature(
-        self,
-        input_shape: tuple[int, int],
-        output_shape: tuple[int, int],
-    ) -> None:
-        actual_input = tuple(self.session.get_inputs()[0].shape)
-        actual_output = tuple(self.session.get_outputs()[0].shape)
-        if actual_input != input_shape:
-            raise RuntimeError(
-                f"Unexpected ONNX input shape {actual_input}; expected {input_shape}"
-            )
-        if actual_output != output_shape:
-            raise RuntimeError(
-                f"Unexpected ONNX output shape {actual_output}; expected {output_shape}"
-            )
+    def run(self) -> torch.Tensor:
+        self.session.run_with_iobinding(self._binding)
+        return self.output

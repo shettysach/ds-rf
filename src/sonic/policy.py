@@ -19,7 +19,7 @@ from shared.g1 import (
 )
 from shared.messages import SONIC_FPS, MotionChunk
 from sonic.observations import ObservationLayout
-from sonic.onnx_runner import FixedShapeOnnxModel
+from sonic.onnx_runner import OnnxModel
 
 HISTORY_FRAMES = 10
 
@@ -107,22 +107,20 @@ class SonicPolicy:
     ) -> None:
         self.device = torch.device(device)
         self.layout = ObservationLayout.load(bundle_dir / "observation_config.yaml")
-        self.encoder = FixedShapeOnnxModel(
+        self.encoder = OnnxModel(
             bundle_dir / "model_encoder.onnx",
             input_shape=(1, self.layout.encoder_input_dimension),
             output_shape=(1, self.layout.encoder_dimension),
             device=self.device,
             cuda_stream=cuda_stream,
         )
-        self.decoder = FixedShapeOnnxModel(
+        self.decoder = OnnxModel(
             bundle_dir / "model_decoder.onnx",
             input_shape=(1, self.layout.policy_input_dimension),
             output_shape=(1, 29),
             device=self.device,
             cuda_stream=cuda_stream,
         )
-        self._encoder_slices = self.layout.encoder_slices
-        self._policy_slices = self.layout.policy_slices
         self._default_joint_pos = torch.as_tensor(
             DEFAULT_JOINT_POS_MJLAB, dtype=torch.float32, device=self.device
         )
@@ -146,9 +144,9 @@ class SonicPolicy:
         self.reference.load(chunk, robot_quat_w)
 
     def infer(self, state: RobotState) -> tuple[torch.Tensor, str | None]:
-        joint_position = (
-            state.joint_pos - self._default_joint_pos
-        ).index_select(0, self._sonic_from_mjlab)
+        joint_position = (state.joint_pos - self._default_joint_pos).index_select(
+            0, self._sonic_from_mjlab
+        )
         joint_velocity = state.joint_vel.index_select(0, self._sonic_from_mjlab)
         positions, velocities, reference_quats = self.reference.window(
             step=self.layout.g1_step
@@ -186,13 +184,13 @@ class SonicPolicy:
         return action_mjlab.unsqueeze(0), completed
 
     def _copy_encoder(self, name: str, value: torch.Tensor) -> None:
-        self.encoder.input[0, self._encoder_slices[name]].copy_(value.reshape(-1))
+        self.encoder.input[0, self.layout.encoder_slices[name]].copy_(value.reshape(-1))
 
     def _copy_policy(self, name: str, value: torch.Tensor) -> None:
-        self.decoder.input[0, self._policy_slices[name]].copy_(value.reshape(-1))
+        self.decoder.input[0, self.layout.policy_slices[name]].copy_(value.reshape(-1))
 
     def _append_history(self, name: str, value: torch.Tensor) -> None:
-        history = self.decoder.input[0, self._policy_slices[name]].view(
+        history = self.decoder.input[0, self.layout.policy_slices[name]].view(
             HISTORY_FRAMES, -1
         )
         history[:-1].copy_(history[1:].clone())
