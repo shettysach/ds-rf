@@ -72,23 +72,36 @@ class SonicController:
                 return
             if event["type"] != "INPUT" or event["id"] != "motion":
                 continue
+            metadata = dict(event.get("metadata") or {})
+            command_id_value = metadata.get("command_id")
+            command_id = str(command_id_value) if command_id_value is not None else None
             try:
-                chunk = motion_from_arrow(
-                    event["value"], dict(event.get("metadata") or {})
-                )
-                state = self.simulation.robot_state()
-                self.policy.load_motion(chunk, state.root_quat_w)
+                chunk = motion_from_arrow(event["value"], metadata)
+            except (KeyError, TypeError, ValueError) as exc:
                 self.node.send_output(
                     "status",
                     status_to_arrow(
-                        RuntimeStatus("sonic", "playing", chunk.command_id)
+                        RuntimeStatus("sonic", "error", command_id, str(exc))
                     ),
                 )
-            except Exception as exc:
+                continue
+
+            state = self.simulation.robot_state()
+            try:
+                self.policy.load_motion(chunk, state.root_quat_w)
+            except ValueError as exc:
                 self.node.send_output(
                     "status",
-                    status_to_arrow(RuntimeStatus("sonic", "error", detail=str(exc))),
+                    status_to_arrow(
+                        RuntimeStatus("sonic", "error", chunk.command_id, str(exc))
+                    ),
                 )
+                continue
+
+            self.node.send_output(
+                "status",
+                status_to_arrow(RuntimeStatus("sonic", "playing", chunk.command_id)),
+            )
 
 
 def main() -> None:

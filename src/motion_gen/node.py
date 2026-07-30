@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dora import Node
 
-from motion_gen.planner_sonic import PlannerSonic
+from motion_gen.planner_sonic import PlannerSonic, PlannerSonicOutputError
 from motion_gen.planner_sonic_command import PlannerSonicCommand
 from motion_gen.resample import resample_motion
 from shared.config import RuntimeConfig
@@ -24,7 +24,7 @@ def main() -> None:
     node = Node()
     generator = PlannerSonic(cfg.planner_onnx, device=cfg.device)
     pending: MotionCommandRequest | None = None
-    busy = False
+    active_command_id: str | None = None
     node.send_output(
         "status",
         status_to_arrow(
@@ -32,9 +32,20 @@ def main() -> None:
         ),
     )
 
-    def generate(request: MotionCommandRequest) -> None:
-        nonlocal busy
-        busy = True
+    def generate(request: MotionCommandRequest) -> str | None:
+        try:
+            command = PlannerSonicCommand.parse(
+                request.text, command_id=request.command_id
+            )
+        except ValueError as exc:
+            node.send_output(
+                "status",
+                status_to_arrow(
+                    RuntimeStatus("motion-gen", "error", request.command_id, str(exc))
+                ),
+            )
+            return None
+
         node.send_output(
             "status",
             status_to_arrow(
@@ -42,21 +53,20 @@ def main() -> None:
             ),
         )
         try:
-            command = PlannerSonicCommand.parse(
-                request.text, command_id=request.command_id
-            )
             native = generator.generate(command)
-            chunk = resample_motion(native, command_id=command.command_id)
-            data, metadata = motion_to_arrow(chunk)
-            node.send_output("motion", data, metadata=metadata)
-        except Exception as exc:
-            busy = False
+        except PlannerSonicOutputError as exc:
             node.send_output(
                 "status",
                 status_to_arrow(
                     RuntimeStatus("motion-gen", "error", request.command_id, str(exc))
                 ),
             )
+            return None
+
+        chunk = resample_motion(native, command_id=command.command_id)
+        data, metadata = motion_to_arrow(chunk)
+        node.send_output("motion", data, metadata=metadata)
+        return request.command_id
 
     for event in node:
         if event["type"] == "STOP":
@@ -65,17 +75,21 @@ def main() -> None:
             continue
         if event["id"] == "command":
             request = command_from_arrow(event["value"])
-            if busy:
+            if active_command_id is not None:
                 pending = request
             else:
-                generate(request)
+                active_command_id = generate(request)
         elif event["id"] == "sonic_status":
             status = status_from_arrow(event["value"])
-            if status.state == "done":
-                busy = False
+            if (
+                status.source == "sonic"
+                and status.state in {"done", "error"}
+                and status.command_id == active_command_id
+            ):
+                active_command_id = None
                 if pending is not None:
                     request, pending = pending, None
-                    generate(request)
+                    active_command_id = generate(request)
 
 
 if __name__ == "__main__":

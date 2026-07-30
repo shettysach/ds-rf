@@ -23,6 +23,8 @@ CUDA_READY = torch.cuda.is_available() and "CUDAExecutionProvider" in (
 @pytest.mark.skipif(not SONIC_DIR.is_dir(), reason="SONIC bundle is unavailable")
 def test_real_checkpoints_generate_action_and_motion() -> None:
     policy = SonicPolicy(SONIC_DIR)
+    encoder_mode = policy.layout.encoder_slices["encoder_mode_4"]
+    policy.encoder.input[0, encoder_mode].fill_(1.0)
     state = RobotState(
         root_quat_w=np.array([1.0, 0.0, 0.0, 0.0]),
         root_ang_vel_b=np.zeros(3),
@@ -31,6 +33,7 @@ def test_real_checkpoints_generate_action_and_motion() -> None:
         joint_vel=np.zeros(29),
     )
     action, completed = policy.infer(state)
+    assert not bool(policy.encoder.input[0, encoder_mode].any())
     assert action.shape == (1, 29)
     assert bool(torch.isfinite(action).all())
     assert completed is None

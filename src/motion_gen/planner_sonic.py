@@ -14,6 +14,10 @@ PLANNER_CONTEXT_FRAMES = 4
 PLANNER_MAX_FRAMES = 64
 
 
+class PlannerSonicOutputError(RuntimeError):
+    """The planner returned output that violates its model contract."""
+
+
 class PlannerSonic:
     """ONNX Runtime wrapper for NVIDIA's G1 kinematic planner."""
 
@@ -48,15 +52,23 @@ class PlannerSonic:
         padded_qpos = np.asarray(outputs[0], dtype=np.float32)
         frame_count = int(np.asarray(outputs[1]).reshape(-1)[0])
         if not 0 < frame_count <= PLANNER_MAX_FRAMES:
-            raise RuntimeError(f"Planner returned invalid frame count: {frame_count}")
+            raise PlannerSonicOutputError(
+                f"Planner returned invalid frame count: {frame_count}"
+            )
         qpos = np.ascontiguousarray(padded_qpos[0, :frame_count])
         if qpos.shape != (frame_count, G1_QPOS_SIZE):
-            raise RuntimeError(f"Planner returned unexpected qpos shape: {qpos.shape}")
+            raise PlannerSonicOutputError(
+                f"Planner returned unexpected qpos shape: {qpos.shape}"
+            )
         if not np.isfinite(qpos).all():
-            raise RuntimeError("Planner output contains NaN or infinite values")
+            raise PlannerSonicOutputError(
+                "Planner output contains NaN or infinite values"
+            )
         quat_norm = np.linalg.norm(qpos[:, 3:7], axis=-1)
         if not np.allclose(quat_norm, 1.0, atol=2e-3):
-            raise RuntimeError("Planner output contains non-unit root quaternions")
+            raise PlannerSonicOutputError(
+                "Planner output contains non-unit root quaternions"
+            )
 
         context = qpos[-PLANNER_CONTEXT_FRAMES:]
         if context.shape[0] < PLANNER_CONTEXT_FRAMES:

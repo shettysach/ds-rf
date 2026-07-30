@@ -166,6 +166,7 @@ class SonicPolicy:
         self._mjlab_from_sonic = torch.as_tensor(
             MJLAB_FROM_SONIC, dtype=torch.long, device=self.device
         )
+        self._g1_encoder_mode = torch.zeros(4, dtype=torch.float32, device=self.device)
         self.reference = MotionReference(self.device)
         self._history: deque[_HistoryState] = deque(maxlen=HISTORY_FRAMES)
         self._last_action = torch.zeros(29, dtype=torch.float32, device=self.device)
@@ -208,6 +209,7 @@ class SonicPolicy:
         )
         orientation_6d = matrix_from_quat(relative_quats)[..., :2]
         suffix = f"10frame_step{step}"
+        self._copy_encoder("encoder_mode_4", self._g1_encoder_mode)
         self._copy_encoder(f"motion_joint_positions_{suffix}", positions)
         self._copy_encoder(f"motion_joint_velocities_{suffix}", velocities)
         self._copy_encoder(f"motion_anchor_orientation_{suffix}", orientation_6d)
