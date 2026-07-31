@@ -190,7 +190,12 @@ class AgentLoop:
 def main() -> None:
     cfg = AgentConfig.from_env()
     node = Node()
-    client = LlamaServerClient(base_url=cfg.vlm_url, timeout=cfg.vlm_timeout)
+    client = LlamaServerClient(
+        base_url=cfg.vlm_url,
+        timeout=cfg.vlm_timeout,
+        system_prompt=cfg.system_prompt.read_text(encoding="utf-8"),
+        user_prompt=cfg.user_prompt.read_text(encoding="utf-8"),
+    )
     AgentLoop(node, client).run()
 
 

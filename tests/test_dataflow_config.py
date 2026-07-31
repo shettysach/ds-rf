@@ -10,6 +10,8 @@ def test_runtime_environment_is_scoped_to_consuming_nodes() -> None:
     assert nodes["agent"]["env"] == {
         "DSRF_VLM_URL": "${DSRF_VLM_URL:-http://127.0.0.1:8080}",
         "DSRF_VLM_TIMEOUT": "${DSRF_VLM_TIMEOUT:-120}",
+        "DSRF_VLM_SYSTEM_PROMPT": ("${DSRF_VLM_SYSTEM_PROMPT:-prompt/SYSTEM.md}"),
+        "DSRF_VLM_USER_PROMPT": "${DSRF_VLM_USER_PROMPT:-prompt/USER.md}",
     }
     assert nodes["motion-gen"]["env"] == {
         "DSRF_DEVICE": "${DSRF_DEVICE:-cpu}",

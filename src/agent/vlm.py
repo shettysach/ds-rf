@@ -8,21 +8,6 @@ from typing import Any
 
 from shared.messages import VisualObservation
 
-SYSTEM_PROMPT = """\
-You control a simulated Unitree G1 humanoid from third-person camera images.
-At each turn, choose one motion command for the robot to execute next.
-Return only the command text, without JSON, punctuation, or explanation.
-"""
-
-COMMAND_PROMPT = """\
-Choose the next command. Prefer one of these basic commands:
-- stand
-- walk forward 0.4
-- walk backward 0.3
-- walk left 0.3 facing=forward
-- walk right 0.3 facing=forward
-"""
-
 
 @dataclass(frozen=True)
 class _ConversationTurn:
@@ -31,9 +16,22 @@ class _ConversationTurn:
 
 
 class LlamaServerClient:
-    def __init__(self, *, base_url: str, timeout: float) -> None:
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        timeout: float,
+        system_prompt: str,
+        user_prompt: str,
+    ) -> None:
+        if not system_prompt.strip():
+            raise ValueError("System prompt must not be empty")
+        if not user_prompt.strip():
+            raise ValueError("User prompt must not be empty")
         self.endpoint = f"{base_url.rstrip('/')}/v1/chat/completions"
         self.timeout = timeout
+        self.system_prompt = system_prompt
+        self.user_prompt = user_prompt
         self._history: list[_ConversationTurn] = []
 
     def complete(
@@ -42,11 +40,19 @@ class LlamaServerClient:
         *,
         retry_feedback: str | None = None,
     ) -> str:
-        messages: list[dict[str, Any]] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": self.system_prompt}
+        ]
         for turn in self._history:
-            messages.append(_user_message(turn.observation))
+            messages.append(_user_message(turn.observation, self.user_prompt))
             messages.append({"role": "assistant", "content": turn.assistant})
-        messages.append(_user_message(observation, retry_feedback=retry_feedback))
+        messages.append(
+            _user_message(
+                observation,
+                self.user_prompt,
+                retry_feedback=retry_feedback,
+            )
+        )
 
         request = urllib.request.Request(
             self.endpoint,
@@ -74,11 +80,12 @@ class LlamaServerClient:
 
 def _user_message(
     observation: VisualObservation,
+    user_prompt: str,
     *,
     retry_feedback: str | None = None,
 ) -> dict[str, Any]:
     completed = observation.completed_command or "none (initial observation)"
-    text = f"Completed command: {completed}\n\n{COMMAND_PROMPT}"
+    text = f"Completed command: {completed}\n\n{user_prompt}"
     if retry_feedback is not None:
         text = f"{retry_feedback}\n\n{text}"
     image_url = "data:image/jpeg;base64," + b64encode(observation.jpeg).decode("ascii")

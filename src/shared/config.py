@@ -43,6 +43,8 @@ class SonicConfig:
 class AgentConfig:
     vlm_url: str
     vlm_timeout: float
+    system_prompt: Path
+    user_prompt: Path
 
     @classmethod
     def from_env(cls) -> "AgentConfig":
@@ -52,7 +54,12 @@ class AgentConfig:
         timeout = float(os.environ["DSRF_VLM_TIMEOUT"])
         if timeout <= 0.0:
             raise ValueError("DSRF_VLM_TIMEOUT must be positive")
-        return cls(vlm_url=url, vlm_timeout=timeout)
+        return cls(
+            vlm_url=url,
+            vlm_timeout=timeout,
+            system_prompt=Path(os.environ["DSRF_VLM_SYSTEM_PROMPT"]),
+            user_prompt=Path(os.environ["DSRF_VLM_USER_PROMPT"]),
+        )
 
 
 def _positive_int(name: str) -> int:

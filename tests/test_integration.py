@@ -6,7 +6,7 @@ import torch
 
 from motion_gen.planner_sonic import PlannerSonic
 from motion_gen.resample import resample_motion
-from nodes.motion_gen_command import parse_motion_command
+from nodes.motion_gen import parse_motion_command
 from shared.g1 import DEFAULT_JOINT_POS_MJLAB
 from sonic.mjlab_env import RobotState, SonicMjlabEnv
 from sonic.policy import SonicPolicy

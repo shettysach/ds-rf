@@ -36,10 +36,14 @@ def test_sonic_config_from_env(monkeypatch) -> None:
 def test_agent_config_from_env(monkeypatch) -> None:
     monkeypatch.setenv("DSRF_VLM_URL", "http://127.0.0.1:8080/")
     monkeypatch.setenv("DSRF_VLM_TIMEOUT", "12.5")
+    monkeypatch.setenv("DSRF_VLM_SYSTEM_PROMPT", "/prompts/system.md")
+    monkeypatch.setenv("DSRF_VLM_USER_PROMPT", "/prompts/user.md")
 
     assert AgentConfig.from_env() == AgentConfig(
         vlm_url="http://127.0.0.1:8080",
         vlm_timeout=12.5,
+        system_prompt=Path("/prompts/system.md"),
+        user_prompt=Path("/prompts/user.md"),
     )
 
 

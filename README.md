@@ -55,6 +55,8 @@ Shell values override the defaults in `dataflow.yml`.
 |---|---:|---|
 | `DSRF_VLM_URL` | `http://127.0.0.1:8080` | llama-server base URL |
 | `DSRF_VLM_TIMEOUT` | `120` | VLM request timeout in seconds |
+| `DSRF_VLM_SYSTEM_PROMPT` | `prompt/SYSTEM.md` | System prompt file |
+| `DSRF_VLM_USER_PROMPT` | `prompt/USER.md` | Per-observation user prompt file |
 | `DSRF_IMAGE_WIDTH` | `640` | Observation width |
 | `DSRF_IMAGE_HEIGHT` | `480` | Observation height |
 | `DSRF_JPEG_QUALITY` | `85` | JPEG quality from 1 to 100 |

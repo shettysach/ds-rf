@@ -3,7 +3,7 @@ import math
 import pytest
 
 from motion_gen.planner_sonic import PlannerMode
-from nodes.motion_gen_command import parse_motion_command
+from nodes.motion_gen import parse_motion_command
 
 
 def test_locomotion_direction_and_speed() -> None:

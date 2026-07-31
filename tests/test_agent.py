@@ -43,7 +43,12 @@ def test_llama_client_uses_blank_model_and_replays_history(monkeypatch) -> None:
         return _Response(next(responses))
 
     monkeypatch.setattr("agent.vlm.urllib.request.urlopen", urlopen)
-    client = LlamaServerClient(base_url="http://127.0.0.1:8080/", timeout=12.0)
+    client = LlamaServerClient(
+        base_url="http://127.0.0.1:8080/",
+        timeout=12.0,
+        system_prompt="System file prompt.\n",
+        user_prompt="User file prompt.\n",
+    )
     first = VisualObservation(0, None, b"first")
     assert client.complete(first) == "stand"
     client.commit(first, "stand")
@@ -61,6 +66,8 @@ def test_llama_client_uses_blank_model_and_replays_history(monkeypatch) -> None:
         "assistant",
         "user",
     ]
+    assert messages[0]["content"] == "System file prompt.\n"
+    assert messages[1]["content"][0]["text"].endswith("User file prompt.\n")
     assert messages[2]["content"] == "stand"
     assert messages[1]["content"][1]["image_url"]["url"].endswith("Zmlyc3Q=")
     assert messages[3]["content"][1]["image_url"]["url"].endswith("c2Vjb25k")
