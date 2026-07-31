@@ -31,11 +31,14 @@ class SonicMjlabEnv:
         self.cfg = self._env.cfg
         self.device = self._env.device
         self.unwrapped = self._env
+
+        torch_device = torch.device(device)
         self.cuda_stream = (
-            connect_torch_to_mjlab(self._env.sim, torch.device(device))
-            if device == "cuda"
+            connect_torch_to_mjlab(self._env.sim, torch_device)
+            if torch_device.type == "cuda"
             else None
         )
+
         with self.compute_context():
             self._env.reset()
 
