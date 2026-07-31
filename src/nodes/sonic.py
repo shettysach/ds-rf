@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from dora import Node
 
 from shared.config import SonicConfig
@@ -20,7 +22,7 @@ def main() -> None:
         image_width=cfg.image_width,
         image_height=cfg.image_height,
     )
-    viewer: SonicViewer | None = (
+    viewer: Optional[SonicViewer] = (
         NativeSonicViewer(simulation) if cfg.viewer == "native" else None
     )
 
@@ -32,24 +34,26 @@ def main() -> None:
                 cuda_stream=simulation.cuda_stream,
             )
         renderer = SonicRenderer(simulation, jpeg_quality=cfg.jpeg_quality)
-        task_name = cfg.task or "none"
-        node.log(
-            "info",
-            f"SONIC initialized: task={task_name!r} device={cfg.device!r} "
-            f"viewer={cfg.viewer!r}",
-            target="dsrf.sonic",
-            fields={
-                "event": "sonic_initialized",
-                "task": task_name,
-                "device": cfg.device,
-                "viewer": cfg.viewer,
-            },
-        )
+        _log_init(node, cfg)
         SonicRuntime(node, simulation, policy, renderer, viewer).run()
     finally:
         if viewer is not None:
             viewer.close()
         simulation.close()
+
+
+def _log_init(node: Node, cfg: SonicConfig) -> None:
+    node.log(
+        "info",
+        "SONIC initialized",
+        target="dsrf.sonic",
+        fields={
+            "event": "sonic_initialized",
+            "task": cfg.task or "none",
+            "device": cfg.device,
+            "viewer": cfg.viewer,
+        },
+    )
 
 
 if __name__ == "__main__":
