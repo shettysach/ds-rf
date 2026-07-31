@@ -36,5 +36,5 @@ def create_onnx_session(
     return ort.InferenceSession(
         model_path,
         sess_options=ort.SessionOptions(),
-        providers=[("CUDAExecutionProvider", provider_options)],
+        providers=[("CUDAExecutionProvider", provider_options), "CPUExecutionProvider"],
     )

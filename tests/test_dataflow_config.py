@@ -7,7 +7,10 @@ def test_runtime_environment_is_scoped_to_consuming_nodes() -> None:
     descriptor = yaml.safe_load(Path("dataflow.yml").read_text())
     nodes = {node["id"]: node for node in descriptor["nodes"]}
 
-    assert "env" not in nodes["input"]
+    assert nodes["agent"]["env"] == {
+        "DSRF_VLM_URL": "${DSRF_VLM_URL:-http://127.0.0.1:8080}",
+        "DSRF_VLM_TIMEOUT": "${DSRF_VLM_TIMEOUT:-120}",
+    }
     assert nodes["motion-gen"]["env"] == {
         "DSRF_DEVICE": "${DSRF_DEVICE:-cpu}",
         "DSRF_PLANNER_ONNX": (
@@ -17,4 +20,7 @@ def test_runtime_environment_is_scoped_to_consuming_nodes() -> None:
     assert nodes["sonic"]["env"] == {
         "DSRF_DEVICE": "${DSRF_DEVICE:-cpu}",
         "DSRF_SONIC_DIR": "${DSRF_SONIC_DIR:-/tmp/GEAR-SONIC}",
+        "DSRF_IMAGE_WIDTH": "${DSRF_IMAGE_WIDTH:-640}",
+        "DSRF_IMAGE_HEIGHT": "${DSRF_IMAGE_HEIGHT:-480}",
+        "DSRF_JPEG_QUALITY": "${DSRF_JPEG_QUALITY:-85}",
     }

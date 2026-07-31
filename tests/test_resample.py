@@ -10,8 +10,10 @@ def test_resample_64_frames_to_106_without_mutating_input() -> None:
     qpos[:, 7] = np.arange(64)
     original = qpos.copy()
 
-    chunk = resample_motion(qpos, command_id="command")
+    chunk = resample_motion(qpos, observation_id=2, command="walk forward")
 
     assert chunk.qpos.shape == (106, 36)
+    assert chunk.observation_id == 2
+    assert chunk.command == "walk forward"
     np.testing.assert_array_equal(qpos, original)
     np.testing.assert_allclose(np.linalg.norm(chunk.qpos[:, 3:7], axis=1), 1.0)

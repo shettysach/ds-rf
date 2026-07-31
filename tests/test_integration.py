@@ -10,6 +10,7 @@ from nodes.motion_gen_command import parse_motion_command
 from shared.g1 import DEFAULT_JOINT_POS_MJLAB
 from sonic.mjlab_env import RobotState, SonicMjlabEnv
 from sonic.policy import SonicPolicy
+from sonic.renderer import SonicRenderer
 
 SONIC_DIR = Path("/tmp/GEAR-SONIC")
 
@@ -35,11 +36,15 @@ def test_real_checkpoints_generate_action_and_motion() -> None:
     assert not bool(policy.encoder.input[0, encoder_mode].any())
     assert action.shape == (1, 29)
     assert bool(torch.isfinite(action).all())
-    assert completed is None
+    assert not completed
 
     planner = PlannerSonic(SONIC_DIR / "planner_sonic.onnx")
     planner_qpos = planner.generate(parse_motion_command("walk forward 0.5"))
-    chunk = resample_motion(planner_qpos, command_id="integration")
+    chunk = resample_motion(
+        planner_qpos,
+        observation_id=0,
+        command="walk forward 0.5",
+    )
     assert 24 <= planner_qpos.shape[0] <= 64
     assert planner_qpos.shape[0] % 4 == 0
     assert chunk.qpos.shape == (planner_qpos.shape[0] * 50 // 30, 36)
@@ -54,6 +59,21 @@ def test_mjlab_cpu_control_step() -> None:
         simulation.step(action)
         assert simulation.unwrapped.common_step_counter == 1
         assert simulation.cfg.sim.njmax == 128
+    finally:
+        simulation.close()
+
+
+@pytest.mark.skipif(not SONIC_DIR.is_dir(), reason="SONIC bundle is unavailable")
+def test_mjlab_offscreen_capture_is_jpeg() -> None:
+    simulation = SonicMjlabEnv(
+        device="cpu",
+        image_width=160,
+        image_height=120,
+    )
+    try:
+        jpeg = SonicRenderer(simulation, jpeg_quality=80).capture_jpeg()
+        assert jpeg.startswith(b"\xff\xd8")
+        assert jpeg.endswith(b"\xff\xd9")
     finally:
         simulation.close()
 

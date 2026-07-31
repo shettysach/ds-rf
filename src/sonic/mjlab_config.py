@@ -20,7 +20,11 @@ from mjlab.terrains import TerrainEntityCfg
 from mjlab.viewer import ViewerConfig
 
 
-def make_sonic_env_cfg() -> ManagerBasedRlEnvCfg:
+def make_sonic_env_cfg(
+    *,
+    image_width: int = 640,
+    image_height: int = 480,
+) -> ManagerBasedRlEnvCfg:
     """Build a minimal 50 Hz MJLab environment matching SONIC's G1 motors."""
 
     actuator_7520_14 = replace(
@@ -78,7 +82,12 @@ def make_sonic_env_cfg() -> ManagerBasedRlEnvCfg:
             body_name="pelvis",
             distance=3.0,
             elevation=-15.0,
-            azimuth=135.0,
+            # The camera follows translation but keeps a world-fixed heading.
+            # At reset it sits behind the +x-facing robot and looks along +x.
+            azimuth=0.0,
+            width=image_width,
+            height=image_height,
+            max_extra_envs=0,
         ),
         episode_length_s=0.0,
     )

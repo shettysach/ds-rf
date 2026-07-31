@@ -41,7 +41,7 @@ class MotionReference:
             HISTORY_FRAMES, dtype=torch.long, device=device
         )
         self._frame = 0
-        self._command_id: str | None = None
+        self._active = False
 
     def load(self, chunk: MotionChunk, robot_quat_w: torch.Tensor) -> None:
         self._qpos = torch.as_tensor(
@@ -60,7 +60,7 @@ class MotionReference:
             yaw_quat(robot_quat_w), quat_conjugate(yaw_quat(reference_quat))
         )
         self._frame = 0
-        self._command_id = chunk.command_id
+        self._active = True
 
     def window(self, *, step: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         indices = torch.clamp(
@@ -78,12 +78,14 @@ class MotionReference:
         )
         return positions, velocities, aligned_quats
 
-    def advance(self) -> str | None:
+    def advance(self) -> bool:
+        if not self._active:
+            return False
         if self._frame < len(self._qpos) - 1:
             self._frame += 1
-            return None
-        command_id, self._command_id = self._command_id, None
-        return command_id
+            return False
+        self._active = False
+        return True
 
 
 class SonicPolicy:
@@ -134,7 +136,7 @@ class SonicPolicy:
     def load_motion(self, chunk: MotionChunk, robot_quat_w: torch.Tensor) -> None:
         self.reference.load(chunk, robot_quat_w)
 
-    def infer(self, state: RobotState) -> tuple[torch.Tensor, str | None]:
+    def infer(self, state: RobotState) -> tuple[torch.Tensor, bool]:
         joint_position = (state.joint_pos - self._default_joint_pos).index_select(
             0, self._sonic_from_mjlab
         )

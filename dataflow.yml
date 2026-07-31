@@ -1,12 +1,16 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/dora-rs/dora/v1.0.0-rc.4/dora-schema.json
 
 nodes:
-  - id: input
+  - id: agent
     path: uv
-    args: run dsrf-input
+    args: run dsrf-agent
+    env:
+      DSRF_VLM_URL: "${DSRF_VLM_URL:-http://127.0.0.1:8080}"
+      DSRF_VLM_TIMEOUT: "${DSRF_VLM_TIMEOUT:-120}"
     inputs:
-      motion_gen_status: motion-gen/status
-      sonic_status: sonic/status
+      observation: sonic/observation
+      planning_error: motion-gen/error
+      sonic_error: sonic/error
     outputs:
       - command
 
@@ -17,11 +21,10 @@ nodes:
       DSRF_DEVICE: "${DSRF_DEVICE:-cpu}"
       DSRF_PLANNER_ONNX: "${DSRF_PLANNER_ONNX:-/tmp/GEAR-SONIC/planner_sonic.onnx}"
     inputs:
-      command: input/command
-      sonic_status: sonic/status
+      command: agent/command
     outputs:
       - motion
-      - status
+      - error
 
   - id: sonic
     path: uv
@@ -29,7 +32,11 @@ nodes:
     env:
       DSRF_DEVICE: "${DSRF_DEVICE:-cpu}"
       DSRF_SONIC_DIR: "${DSRF_SONIC_DIR:-/tmp/GEAR-SONIC}"
+      DSRF_IMAGE_WIDTH: "${DSRF_IMAGE_WIDTH:-640}"
+      DSRF_IMAGE_HEIGHT: "${DSRF_IMAGE_HEIGHT:-480}"
+      DSRF_JPEG_QUALITY: "${DSRF_JPEG_QUALITY:-85}"
     inputs:
       motion: motion-gen/motion
     outputs:
-      - status
+      - observation
+      - error

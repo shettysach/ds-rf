@@ -14,7 +14,8 @@ PLANNER_FPS = 30
 def resample_motion(
     planner_qpos: np.ndarray,
     *,
-    command_id: str,
+    observation_id: int,
+    command: str,
 ) -> MotionChunk:
     """Resample planner_sonic output to SONIC's control frequency."""
 
@@ -35,4 +36,8 @@ def resample_motion(
             blend,
         )
 
-    return MotionChunk(command_id=command_id, qpos=output.numpy())
+    return MotionChunk(
+        observation_id=observation_id,
+        command=command,
+        qpos=output.numpy(),
+    )

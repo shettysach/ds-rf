@@ -1,0 +1,1 @@
+"""Closed-loop visual agent."""

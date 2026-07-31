@@ -4,6 +4,7 @@ from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import numpy as np
 import torch
 
 from sonic.mjlab_config import make_sonic_env_cfg
@@ -23,12 +24,23 @@ class RobotState:
 
 
 class SonicMjlabEnv:
-    def __init__(self, *, device: str = "cpu") -> None:
+    def __init__(
+        self,
+        *,
+        device: str = "cpu",
+        image_width: int = 640,
+        image_height: int = 480,
+    ) -> None:
         from mjlab.envs import ManagerBasedRlEnv
 
         torch_device = torch.device(device)
         self._env = ManagerBasedRlEnv(
-            cfg=make_sonic_env_cfg(), device=str(torch_device)
+            cfg=make_sonic_env_cfg(
+                image_width=image_width,
+                image_height=image_height,
+            ),
+            device=str(torch_device),
+            render_mode="rgb_array",
         )
         self.num_envs = self._env.num_envs
         self.cfg = self._env.cfg
@@ -68,6 +80,13 @@ class SonicMjlabEnv:
     def reset(self) -> tuple[VecEnvObs, dict[str, object]]:
         with self.compute_context():
             return self._env.reset()
+
+    def render(self) -> np.ndarray:
+        with self.compute_context():
+            image = self._env.render()
+        if image is None:
+            raise RuntimeError("MJLab offscreen renderer returned no image")
+        return image
 
     def close(self) -> None:
         self._env.close()

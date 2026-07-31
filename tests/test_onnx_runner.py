@@ -25,7 +25,7 @@ def test_io_binding_uses_cuda_device_index() -> None:
     model.input_name = "input"
     model.output_name = "output"
     model.device = torch.device("cuda:1")
-    model.device_id = 1
+    cast(Any, model).device_id = 1
     model.input = torch.zeros((1, 2))
     model.output = torch.empty((1, 3))
 

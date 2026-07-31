@@ -1,13 +1,24 @@
 from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 
+import numpy as np
 import pyarrow as pa
 import pytest
+import torch
 
 import nodes.motion_gen as motion_gen_node
-import nodes.sonic as sonic_node
-from shared.messages import MotionCommandRequest, RuntimeStatus, status_from_arrow
+import sonic.runtime as sonic_runtime
+from shared.messages import (
+    AgentCommand,
+    MotionChunk,
+    agent_command_to_arrow,
+    motion_from_arrow,
+    motion_to_arrow,
+    observation_from_arrow,
+    pipeline_error_from_arrow,
+)
 
 
 class _Node:
@@ -18,203 +29,191 @@ class _Node:
     def __iter__(self):
         return self.events
 
-    def try_recv(self):
-        return next(self.events, None)
-
     def send_output(self, output_id, value, **kwargs) -> None:
         self.outputs.append((output_id, value, kwargs))
+
+
+def _command_event(observation_id: int, text: str) -> dict[str, object]:
+    value, metadata = agent_command_to_arrow(AgentCommand(observation_id, text))
+    return {
+        "type": "INPUT",
+        "id": "command",
+        "value": value,
+        "metadata": metadata,
+    }
 
 
 def _run_motion_gen(monkeypatch, events, generate):
     node = _Node(events)
     generator = SimpleNamespace(generate=generate)
-    config = SimpleNamespace(
-        device="cpu",
-        planner_onnx=Path("planner.onnx"),
-    )
+    config = SimpleNamespace(device="cpu", planner_onnx=Path("planner.onnx"))
     monkeypatch.setattr(motion_gen_node.MotionGenConfig, "from_env", lambda: config)
     monkeypatch.setattr(motion_gen_node, "Node", lambda: node)
     monkeypatch.setattr(
         motion_gen_node, "PlannerSonic", lambda *args, **kwargs: generator
     )
-    monkeypatch.setattr(
-        motion_gen_node, "command_from_arrow", lambda value, metadata: value
-    )
-    monkeypatch.setattr(motion_gen_node, "status_from_arrow", lambda value: value)
-    monkeypatch.setattr(
-        motion_gen_node, "resample_motion", lambda motion, **kwargs: motion
-    )
-    monkeypatch.setattr(motion_gen_node, "motion_to_arrow", lambda motion: (motion, {}))
     motion_gen_node.main()
     return node
 
 
-def test_sonic_error_releases_pending_motion(monkeypatch) -> None:
-    first = MotionCommandRequest("first", "walk")
-    second = MotionCommandRequest("second", "run")
+def _planner_motion() -> np.ndarray:
+    qpos = np.zeros((2, 36), dtype=np.float32)
+    qpos[:, 3] = 1.0
+    return qpos
+
+
+def test_motion_gen_generates_one_segment_per_command(monkeypatch) -> None:
     generated: list[int] = []
 
     def generate(command):
         generated.append(command.mode)
-        return object()
-
-    _run_motion_gen(
-        monkeypatch,
-        [
-            {"type": "INPUT", "id": "command", "value": first},
-            {"type": "INPUT", "id": "command", "value": second},
-            {
-                "type": "INPUT",
-                "id": "sonic_status",
-                "value": RuntimeStatus("sonic", "error", "first"),
-            },
-        ],
-        generate,
-    )
-
-    assert generated == [2, 3]
-
-
-def test_motion_gen_repeats_completed_command(monkeypatch) -> None:
-    request = MotionCommandRequest("walk", "walk left")
-    generated: list[int] = []
-
-    def generate(command):
-        generated.append(command.mode)
-        return object()
-
-    _run_motion_gen(
-        monkeypatch,
-        [
-            {"type": "INPUT", "id": "command", "value": request},
-            {
-                "type": "INPUT",
-                "id": "sonic_status",
-                "value": RuntimeStatus("sonic", "done", "walk"),
-            },
-        ],
-        generate,
-    )
-
-    assert generated == [2, 2]
-
-
-def test_motion_gen_uses_latest_pending_command_at_boundary(monkeypatch) -> None:
-    walk = MotionCommandRequest("walk", "walk")
-    run = MotionCommandRequest("run", "run")
-    stand = MotionCommandRequest("stand", "stand")
-    generated: list[int] = []
-
-    def generate(command):
-        generated.append(command.mode)
-        return object()
-
-    _run_motion_gen(
-        monkeypatch,
-        [
-            {"type": "INPUT", "id": "command", "value": walk},
-            {"type": "INPUT", "id": "command", "value": run},
-            {"type": "INPUT", "id": "command", "value": stand},
-            {
-                "type": "INPUT",
-                "id": "sonic_status",
-                "value": RuntimeStatus("sonic", "done", "walk"),
-            },
-        ],
-        generate,
-    )
-
-    assert generated == [2, 0]
-
-
-def test_invalid_pending_command_keeps_repeating_active_motion(monkeypatch) -> None:
-    walk = MotionCommandRequest("walk", "walk")
-    invalid = MotionCommandRequest("invalid", "not-a-mode")
-    generated: list[int] = []
-
-    def generate(command):
-        generated.append(command.mode)
-        return object()
+        return _planner_motion()
 
     node = _run_motion_gen(
         monkeypatch,
-        [
-            {"type": "INPUT", "id": "command", "value": walk},
-            {"type": "INPUT", "id": "command", "value": invalid},
-            {
-                "type": "INPUT",
-                "id": "sonic_status",
-                "value": RuntimeStatus("sonic", "done", "walk"),
-            },
-        ],
+        [_command_event(4, "walk forward 0.4")],
         generate,
     )
 
-    errors = [
-        status_from_arrow(value)
-        for output_id, value, _kwargs in node.outputs
-        if output_id == "status"
-    ]
-    assert generated == [2, 2]
-    assert any(
-        status.state == "error" and status.command_id == "invalid"
-        for status in errors
+    motions = [output for output in node.outputs if output[0] == "motion"]
+    assert generated == [2]
+    assert len(motions) == 1
+    _, value, kwargs = motions[0]
+    chunk = motion_from_arrow(value, kwargs["metadata"])
+    assert chunk.observation_id == 4
+    assert chunk.command == "walk forward 0.4"
+
+
+def test_motion_gen_reports_invalid_raw_vlm_response(monkeypatch) -> None:
+    node = _run_motion_gen(
+        monkeypatch,
+        [_command_event(5, "I think the robot should walk")],
+        lambda command: _planner_motion(),
     )
 
+    errors = [output for output in node.outputs if output[0] == "error"]
+    assert len(errors) == 1
+    error = pipeline_error_from_arrow(errors[0][1])
+    assert error.source == "motion-gen"
+    assert error.observation_id == 5
+    assert "Unknown planner_sonic mode" in error.detail
 
-def test_motion_gen_does_not_swallow_unexpected_errors(monkeypatch) -> None:
-    request = MotionCommandRequest("command", "walk")
 
+def test_motion_gen_does_not_swallow_planner_errors(monkeypatch) -> None:
     def generate(command):
         raise KeyError("unexpected")
 
     with pytest.raises(KeyError, match="unexpected"):
         _run_motion_gen(
             monkeypatch,
-            [{"type": "INPUT", "id": "command", "value": request}],
+            [_command_event(0, "walk forward")],
             generate,
         )
 
 
-def test_sonic_error_preserves_motion_command_id(monkeypatch) -> None:
-    node = _Node(
-        [
-            {
-                "type": "INPUT",
-                "id": "motion",
-                "value": pa.array([], type=pa.float32()),
-                "metadata": {"command_id": "command"},
-            }
-        ]
+class _Simulation:
+    device = "cpu"
+
+    def __init__(self) -> None:
+        self.steps = 0
+
+    def compute_context(self):
+        return nullcontext()
+
+    def robot_state(self):
+        return SimpleNamespace(root_quat_w=torch.tensor([1.0, 0.0, 0.0, 0.0]))
+
+    def step(self, action) -> None:
+        del action
+        self.steps += 1
+
+
+class _Policy:
+    def __init__(self) -> None:
+        self.calls = 0
+        self.loaded: MotionChunk | None = None
+
+    def load_motion(self, chunk, root_quat_w) -> None:
+        del root_quat_w
+        self.loaded = chunk
+
+    def infer(self, state):
+        del state
+        self.calls += 1
+        return torch.zeros((1, 29)), self.calls == 2
+
+
+class _Renderer:
+    def __init__(self, simulation: _Simulation) -> None:
+        self.simulation = simulation
+        self.capture_steps: list[int] = []
+
+    def capture_jpeg(self) -> bytes:
+        self.capture_steps.append(self.simulation.steps)
+        return f"jpeg-{self.simulation.steps}".encode()
+
+
+def _motion_event(chunk: MotionChunk) -> dict[str, object]:
+    value, metadata = motion_to_arrow(chunk)
+    return {
+        "type": "INPUT",
+        "id": "motion",
+        "value": value,
+        "metadata": metadata,
+    }
+
+
+def test_sonic_steps_final_action_before_capture(monkeypatch) -> None:
+    qpos = np.zeros((2, 36), dtype=np.float32)
+    qpos[:, 3] = 1.0
+    chunk = MotionChunk(0, "walk forward", qpos)
+    node = _Node([_motion_event(chunk), {"type": "STOP"}])
+    simulation = _Simulation()
+    policy = _Policy()
+    renderer = _Renderer(simulation)
+    monkeypatch.setattr(sonic_runtime.time, "sleep", lambda delay: None)
+
+    runtime = sonic_runtime.SonicRuntime(
+        cast(Any, node),
+        cast(Any, simulation),
+        cast(Any, policy),
+        cast(Any, renderer),
     )
-    simulation = SimpleNamespace(device="cpu")
-    controller = sonic_node.SonicController(node, simulation, SimpleNamespace())
-    monkeypatch.setattr(
-        sonic_node,
-        "motion_from_arrow",
-        lambda value, metadata: _raise(ValueError("bad")),
+    runtime.run()
+
+    assert simulation.steps == 2
+    assert renderer.capture_steps == [0, 2]
+    observations = [output for output in node.outputs if output[0] == "observation"]
+    first = observation_from_arrow(
+        observations[0][1], cast(Any, observations[0][2]["metadata"])
+    )
+    second = observation_from_arrow(
+        observations[1][1], cast(Any, observations[1][2]["metadata"])
+    )
+    assert first.observation_id == 0
+    assert first.completed_command is None
+    assert second.observation_id == 1
+    assert second.completed_command == "walk forward"
+
+
+def test_sonic_rejects_motion_for_stale_observation() -> None:
+    node = _Node([])
+    simulation = _Simulation()
+    runtime = sonic_runtime.SonicRuntime(
+        cast(Any, node),
+        cast(Any, simulation),
+        cast(Any, _Policy()),
+        cast(Any, _Renderer(simulation)),
+    )
+    runtime._accept_motion(
+        {
+            "type": "INPUT",
+            "id": "motion",
+            "value": pa.array(np.zeros(72), type=pa.float32()),
+            "metadata": {"observation_id": "3", "command": "stand"},
+        }
     )
 
-    controller.poll()
-
-    status = status_from_arrow(node.outputs[-1][1])
-    assert status == RuntimeStatus("sonic", "error", "command", "bad")
-
-
-def test_sonic_stop_unwinds_the_runtime() -> None:
-    node = _Node([{"type": "STOP"}])
-    simulation = SimpleNamespace(
-        device="cpu",
-        compute_context=nullcontext,
-    )
-    controller = sonic_node.SonicController(node, simulation, SimpleNamespace())
-
-    with pytest.raises(sonic_node._StopRequested):
-        controller(None)
-
-    assert controller.stopped
-    assert not issubclass(sonic_node._StopRequested, Exception)
-
-
-def _raise(error: Exception):
-    raise error
+    error = pipeline_error_from_arrow(node.outputs[-1][1])
+    assert error.observation_id == 0
+    assert "Expected motion for observation 0, got 3" in error.detail

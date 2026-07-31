@@ -22,10 +22,44 @@ class MotionGenConfig:
 class SonicConfig:
     sonic_dir: Path
     device: str
+    image_width: int
+    image_height: int
+    jpeg_quality: int
 
     @classmethod
     def from_env(cls) -> "SonicConfig":
         return cls(
             sonic_dir=Path(os.environ["DSRF_SONIC_DIR"]),
             device=os.environ["DSRF_DEVICE"],
+            image_width=_positive_int("DSRF_IMAGE_WIDTH"),
+            image_height=_positive_int("DSRF_IMAGE_HEIGHT"),
+            jpeg_quality=_bounded_int("DSRF_JPEG_QUALITY", minimum=1, maximum=100),
         )
+
+
+@dataclass(frozen=True)
+class AgentConfig:
+    vlm_url: str
+    vlm_timeout: float
+
+    @classmethod
+    def from_env(cls) -> "AgentConfig":
+        url = os.environ["DSRF_VLM_URL"].strip().rstrip("/")
+        if not url:
+            raise ValueError("DSRF_VLM_URL must not be empty")
+        timeout = float(os.environ["DSRF_VLM_TIMEOUT"])
+        if timeout <= 0.0:
+            raise ValueError("DSRF_VLM_TIMEOUT must be positive")
+        return cls(vlm_url=url, vlm_timeout=timeout)
+
+
+def _positive_int(name: str) -> int:
+    return _bounded_int(name, minimum=1)
+
+
+def _bounded_int(name: str, *, minimum: int, maximum: int | None = None) -> int:
+    value = int(os.environ[name])
+    if value < minimum or (maximum is not None and value > maximum):
+        expected = f">= {minimum}" if maximum is None else f"{minimum}..{maximum}"
+        raise ValueError(f"{name} must be in {expected}, got {value}")
+    return value

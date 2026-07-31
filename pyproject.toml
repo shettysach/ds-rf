@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "dora-rs==1.0.0rc4",
+    "imageio>=2.37,<3",
     "numpy>=2.4.0,<2.5",
     "pyarrow>=20",
     "pyyaml>=6.0.2",
@@ -28,6 +29,7 @@ cu128 = [
 ]
 
 [project.scripts]
+dsrf-agent = "nodes.agent:main"
 dsrf-input = "input_node:main"
 dsrf-command = "input_node.client:main"
 dsrf-motion-gen = "nodes.motion_gen:main"
@@ -73,6 +75,7 @@ explicit = true
 
 [tool.hatch.build.targets.wheel]
 packages = [
+    "src/agent",
     "src/input_node",
     "src/motion_gen",
     "src/nodes",
