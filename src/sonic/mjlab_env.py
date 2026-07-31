@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
+from mjlab.utils.lab_api.math import euler_xyz_from_quat
 
 from sonic.mjlab_config import make_sonic_env_cfg
 
@@ -85,13 +86,34 @@ class SonicMjlabEnv:
 
     def render(self) -> np.ndarray:
         with self.compute_context():
+            self._align_camera_with_robot()
             image = self._env.render()
         if image is None:
             raise RuntimeError("MJLab offscreen renderer returned no image")
         return image
 
+    def _align_camera_with_robot(self) -> None:
+        """Keep the tracking camera behind the robot as its heading changes."""
+        renderer = self._env._offline_renderer
+        if renderer is None:
+            raise RuntimeError("MJLab offscreen renderer is not initialized")
+
+        camera_cfg = self.cfg.viewer
+        if camera_cfg.entity_name is None or camera_cfg.body_name is None:
+            raise RuntimeError("Third-person camera requires an entity and body")
+
+        robot = self._env.scene[camera_cfg.entity_name]
+        body_index = robot.body_names.index(camera_cfg.body_name)
+        body_quat_w = robot.data.body_link_quat_w[camera_cfg.env_idx, body_index]
+        renderer._cam.azimuth = camera_cfg.azimuth + _yaw_degrees(body_quat_w)
+
     def close(self) -> None:
         self._env.close()
+
+
+def _yaw_degrees(quat_w: torch.Tensor) -> float:
+    _, _, yaw = euler_xyz_from_quat(quat_w.reshape(1, 4))
+    return float(torch.rad2deg(yaw).item())
 
 
 # CUDA

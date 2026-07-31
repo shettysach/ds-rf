@@ -74,7 +74,7 @@ def make_sonic_env_cfg(
     camera_distance = (
         task_definition.camera_distance
         if task_definition is not None and task_definition.camera_distance is not None
-        else 3.0
+        else 2.0
     )
 
     return ManagerBasedRlEnvCfg(
@@ -92,11 +92,9 @@ def make_sonic_env_cfg(
         viewer=ViewerConfig(
             origin_type=ViewerConfig.OriginType.ASSET_BODY,
             entity_name="robot",
-            body_name="pelvis",
+            body_name="torso_link",
             distance=camera_distance,
             elevation=-15.0,
-            # The camera follows translation but keeps a world-fixed heading.
-            # At reset it sits behind the +x-facing robot and looks along +x.
             azimuth=0.0,
             width=image_width,
             height=image_height,

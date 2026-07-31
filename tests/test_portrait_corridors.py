@@ -27,7 +27,17 @@ def test_sonic_config_applies_task_scene_and_camera_distance() -> None:
     assert task_cfg.scene.spec_fn is not None
     assert task_cfg.viewer.distance == 2.0
     assert plain_cfg.scene.spec_fn is None
-    assert plain_cfg.viewer.distance == 3.0
+    assert plain_cfg.viewer.distance == 2.0
+
+
+def test_sonic_config_uses_third_person_torso_camera() -> None:
+    camera = make_sonic_env_cfg().viewer
+
+    assert camera.origin_type == camera.OriginType.ASSET_BODY
+    assert camera.entity_name == "robot"
+    assert camera.body_name == "torso_link"
+    assert camera.azimuth == 0.0
+    assert camera.elevation == -15.0
 
 
 def test_portrait_corridors_spec_adds_portraits_walls_and_cameras() -> None:
