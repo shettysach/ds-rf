@@ -26,13 +26,15 @@ class SonicMjlabEnv:
     def __init__(self, *, device: str = "cpu") -> None:
         from mjlab.envs import ManagerBasedRlEnv
 
-        self._env = ManagerBasedRlEnv(cfg=make_sonic_env_cfg(), device=device)
+        torch_device = torch.device(device)
+        self._env = ManagerBasedRlEnv(
+            cfg=make_sonic_env_cfg(), device=str(torch_device)
+        )
         self.num_envs = self._env.num_envs
         self.cfg = self._env.cfg
         self.device = self._env.device
         self.unwrapped = self._env
 
-        torch_device = torch.device(device)
         self.cuda_stream = (
             connect_torch_to_mjlab(self._env.sim, torch_device)
             if torch_device.type == "cuda"

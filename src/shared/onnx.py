@@ -15,30 +15,38 @@ def create_onnx_session(
     device: str,
     cuda_stream: torch.cuda.Stream | None = None,
 ) -> ort.InferenceSession:
+    import torch
 
-    if device == "cpu":
-        return ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+    torch_device = torch.device(device)
 
-    _load_cuda_libraries()
-
-    options = {"device_id": "0"}
-    if cuda_stream is not None:
-        options["user_compute_stream"] = str(cuda_stream.cuda_stream)
-
-    sess_options = ort.SessionOptions()
-    session = ort.InferenceSession(
-        model_path,
-        sess_options=sess_options,
-        providers=[
-            ("CUDAExecutionProvider", options),
-            "CPUExecutionProvider",  # NOTE: Currently some graphs fallback
-        ],
-    )
-    return session
-
-
-# Importing Torch first makes its CUDA and cuDNN libraries available to ORT.
-def _load_cuda_libraries() -> None:
-    import torch  # noqa: F401
+    if torch_device.type == "cpu":
+        return ort.InferenceSession(
+            model_path,
+            providers=["CPUExecutionProvider"],
+        )
 
     ort.preload_dlls()
+
+    device_id = (
+        torch.cuda.current_device()
+        if torch_device.index is None
+        else torch_device.index
+    )
+    provider_options = {
+        "device_id": str(device_id),
+    }
+
+    if cuda_stream is not None:
+        stream_device_id = cuda_stream.device.index
+        assert stream_device_id == device_id
+        provider_options["user_compute_stream"] = str(cuda_stream.cuda_stream)
+
+    return ort.InferenceSession(
+        model_path,
+        sess_options=ort.SessionOptions(),
+        providers=[
+            ("CUDAExecutionProvider", provider_options),
+            # Some operations in the SONIC graphs currently fall back to CPU.
+            "CPUExecutionProvider",
+        ],
+    )

@@ -1,6 +1,8 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from shared import onnx as onnx_utils
 
 
@@ -13,7 +15,18 @@ class _FakeSession:
         return [first[0] if isinstance(first, tuple) else first]
 
 
-def test_cuda_session_receives_device_and_user_stream(monkeypatch) -> None:
+@pytest.mark.parametrize(
+    ("device", "device_id"),
+    [
+        ("cuda", "0"),
+        ("cuda:1", "1"),
+    ],
+)
+def test_cuda_session_receives_device_and_user_stream(
+    monkeypatch,
+    device: str,
+    device_id: str,
+) -> None:
     captured: dict[str, object] = {}
 
     def fake_session(path, *, sess_options, providers):
@@ -27,7 +40,7 @@ def test_cuda_session_receives_device_and_user_stream(monkeypatch) -> None:
 
     session = onnx_utils.create_onnx_session(
         Path("model.onnx"),
-        device="cuda:0",
+        device=device,
         cuda_stream=SimpleNamespace(cuda_stream=12345),
     )
 
@@ -35,7 +48,7 @@ def test_cuda_session_receives_device_and_user_stream(monkeypatch) -> None:
     assert captured["providers"] == [
         (
             "CUDAExecutionProvider",
-            {"device_id": "0", "user_compute_stream": "12345"},
+            {"device_id": device_id, "user_compute_stream": "12345"},
         ),
         "CPUExecutionProvider",
     ]
