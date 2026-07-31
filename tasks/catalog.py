@@ -9,8 +9,8 @@ from tasks.portrait_corridors import make_portrait_corridors_spec_fn
 if TYPE_CHECKING:
     from mujoco import MjSpec  # ty: ignore[unresolved-import]
 
-TaskName = Literal["portrait-corridors"]
-SpecFn = Callable[["MjSpec"], None]
+type TaskName = Literal["portrait-corridors"]
+type SpecFn = Callable[["MjSpec"], None]
 
 
 @dataclass(frozen=True)
@@ -24,8 +24,7 @@ TASKS: dict[TaskName, TaskDefinition] = {
     "portrait-corridors": TaskDefinition(
         objective="Stand in front of the image of the cartoon.",
         make_spec_fn=make_portrait_corridors_spec_fn,
-        # Keep the tracking camera inside the back wall at x=-2.
-        camera_distance=2.0,
+        camera_distance=2.0,  # Keep the tracking camera inside the back wall at x=-2.
     ),
 }
 

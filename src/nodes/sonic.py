@@ -20,10 +20,11 @@ def main() -> None:
         image_width=cfg.image_width,
         image_height=cfg.image_height,
     )
-    viewer: SonicViewer | None = None
+    viewer: SonicViewer | None = (
+        NativeSonicViewer(simulation) if cfg.viewer == "native" else None
+    )
+
     try:
-        if cfg.viewer == "native":
-            viewer = NativeSonicViewer(simulation)
         with simulation.compute_context():
             policy = SonicPolicy(
                 cfg.sonic_dir,
