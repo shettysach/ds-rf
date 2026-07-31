@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import torch
@@ -12,6 +12,7 @@ from sonic.mjlab_config import make_sonic_env_cfg
 if TYPE_CHECKING:
     from mjlab.envs.types import VecEnvObs, VecEnvStepReturn
     from mjlab.sim import Simulation
+    from mjlab.viewer import EnvProtocol
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,7 @@ class SonicMjlabEnv:
         device: str = "cpu",
         image_width: int = 640,
         image_height: int = 480,
+        show_viewer: bool = False,
     ) -> None:
         from mjlab.envs import ManagerBasedRlEnv
 
@@ -46,6 +48,7 @@ class SonicMjlabEnv:
         self.cfg = self._env.cfg
         self.device = self._env.device
         self.unwrapped = self._env
+        self._viewer: Any | None = None
 
         self.cuda_stream = (
             connect_torch_to_mjlab(self._env.sim, torch_device)
@@ -55,6 +58,20 @@ class SonicMjlabEnv:
 
         with self.compute_context():
             self._env.reset()
+
+        if show_viewer:
+            from mjlab.viewer import NativeMujocoViewer
+
+            # We only use the passive viewer's state-copy/render path. Calling
+            # viewer.run() or viewer.tick() would give it control of physics.
+            self._viewer = NativeMujocoViewer(
+                cast("EnvProtocol", self._env),
+                _ViewerOnlyPolicy(),
+                frame_rate=50.0,
+                enable_perturbations=False,
+            )
+            self._viewer.setup()
+            self._sync_viewer()
 
     def compute_context(self) -> AbstractContextManager[None]:
         return stream_context(self.cuda_stream)
@@ -75,11 +92,15 @@ class SonicMjlabEnv:
 
     def step(self, actions: torch.Tensor) -> VecEnvStepReturn:
         with self.compute_context():
-            return self._env.step(actions)
+            result = self._env.step(actions)
+            self._sync_viewer()
+            return result
 
     def reset(self) -> tuple[VecEnvObs, dict[str, object]]:
         with self.compute_context():
-            return self._env.reset()
+            result = self._env.reset()
+            self._sync_viewer()
+            return result
 
     def render(self) -> np.ndarray:
         with self.compute_context():
@@ -89,7 +110,22 @@ class SonicMjlabEnv:
         return image
 
     def close(self) -> None:
+        if self._viewer is not None:
+            self._viewer.close()
+            self._viewer = None
         self._env.close()
+
+    def _sync_viewer(self) -> None:
+        if self._viewer is not None:
+            self._viewer.sync_env_to_viewer()
+
+
+class _ViewerOnlyPolicy:
+    """Sentinel policy: the passive display must never advance simulation."""
+
+    def __call__(self, obs: object) -> torch.Tensor:
+        del obs
+        raise RuntimeError("The SONIC passive viewer cannot drive physics")
 
 
 # CUDA

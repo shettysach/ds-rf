@@ -39,6 +39,10 @@ dora run dataflow.yml
 SONIC publishes an initial observation immediately after startup. The agent
 begins querying llama-server as soon as that image arrives.
 
+The SONIC node also opens a passive MuJoCo viewer. The window only mirrors
+SONIC's state: it does not step physics, and the simulation remains frozen
+while the loop waits for a new motion.
+
 ## Configuration
 
 Shell values override the defaults in `dataflow.yml`.

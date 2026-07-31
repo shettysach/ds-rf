@@ -17,6 +17,7 @@ def main() -> None:
         device=cfg.device,
         image_width=cfg.image_width,
         image_height=cfg.image_height,
+        show_viewer=True,
     )
     try:
         with simulation.compute_context():

@@ -44,7 +44,7 @@ class MotionReference:
         self._active = False
 
     def load(self, chunk: MotionChunk, robot_quat_w: torch.Tensor) -> None:
-        self._qpos = torch.as_tensor(
+        self._qpos = torch.tensor(
             chunk.qpos, dtype=torch.float32, device=self.device
         ).contiguous()
         if len(self._qpos) < 2:
