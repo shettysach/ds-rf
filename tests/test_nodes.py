@@ -158,6 +158,18 @@ class _Renderer:
         return f"jpeg-{self.simulation.steps}".encode()
 
 
+class _Viewer:
+    def __init__(self, simulation: _Simulation) -> None:
+        self.simulation = simulation
+        self.sync_steps: list[int] = []
+
+    def sync(self) -> None:
+        self.sync_steps.append(self.simulation.steps)
+
+    def close(self) -> None:
+        pass
+
+
 def _motion_event(chunk: MotionChunk) -> dict[str, object]:
     value, metadata = motion_to_arrow(chunk)
     return {
@@ -176,6 +188,7 @@ def test_sonic_steps_final_action_before_capture(monkeypatch) -> None:
     simulation = _Simulation()
     policy = _Policy()
     renderer = _Renderer(simulation)
+    viewer = _Viewer(simulation)
     monkeypatch.setattr(sonic_runtime.time, "sleep", lambda delay: None)
 
     runtime = sonic_runtime.SonicRuntime(
@@ -183,10 +196,12 @@ def test_sonic_steps_final_action_before_capture(monkeypatch) -> None:
         cast(Any, simulation),
         cast(Any, policy),
         cast(Any, renderer),
+        cast(Any, viewer),
     )
     runtime.run()
 
     assert simulation.steps == 2
+    assert viewer.sync_steps == [1, 2]
     assert renderer.capture_steps == [0, 2]
     observations = [output for output in node.outputs if output[0] == "observation"]
     first = observation_from_arrow(
@@ -199,9 +214,7 @@ def test_sonic_steps_final_action_before_capture(monkeypatch) -> None:
     assert first.completed_command is None
     assert second.observation_id == 1
     assert second.completed_command == "walk forward"
-    assert any(
-        "[OBS 0->1] motion complete" in message for _, message, _ in node.logs
-    )
+    assert any("[OBS 0->1] motion complete" in message for _, message, _ in node.logs)
 
 
 def test_sonic_rejects_motion_for_stale_observation() -> None:

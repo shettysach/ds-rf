@@ -43,9 +43,10 @@ dora run dataflow.yml
 SONIC publishes an initial observation immediately after startup. The agent
 begins querying llama-server as soon as that image arrives.
 
-The SONIC node also opens a passive MuJoCo viewer. The window only mirrors
-SONIC's state: it does not step physics, and the simulation remains frozen
-while the loop waits for a new motion.
+By default, the SONIC node also opens a passive MuJoCo viewer. The window only
+mirrors SONIC's state: it does not step physics, and the simulation remains
+frozen while the loop waits for a new motion. Set `DSRF_VIEWER=none` to disable
+the window for headless runs.
 
 ## Configuration
 
@@ -60,6 +61,7 @@ Shell values override the defaults in `dataflow.yml`.
 | `DSRF_IMAGE_WIDTH` | `640` | Observation width |
 | `DSRF_IMAGE_HEIGHT` | `480` | Observation height |
 | `DSRF_JPEG_QUALITY` | `85` | JPEG quality from 1 to 100 |
+| `DSRF_VIEWER` | `native` | Display mode: `none` or `native` |
 | `DSRF_DEVICE` | `cpu` | Torch, MJLab, and ONNX device |
 | `DSRF_PLANNER_ONNX` | `/tmp/GEAR-SONIC/planner_sonic.onnx` | Planner model |
 | `DSRF_SONIC_DIR` | `/tmp/GEAR-SONIC` | SONIC model bundle |

@@ -18,6 +18,7 @@ from shared.messages import (
 from sonic.mjlab_env import SonicMjlabEnv
 from sonic.policy import SonicPolicy
 from sonic.renderer import SonicRenderer
+from sonic.viewer import SonicViewer
 
 CONTROL_PERIOD = 1.0 / SONIC_FPS
 
@@ -36,11 +37,13 @@ class SonicRuntime:
         simulation: SonicMjlabEnv,
         policy: SonicPolicy,
         renderer: SonicRenderer,
+        viewer: SonicViewer | None = None,
     ) -> None:
         self.node = node
         self.simulation = simulation
         self.policy = policy
         self.renderer = renderer
+        self.viewer = viewer
         self.observation_id = 0
         self._observation_published_at: float | None = None
 
@@ -90,14 +93,14 @@ class SonicRuntime:
 
         published_at = self._observation_published_at
         pause_ms = (
-            (received_at - published_at) * 1000.0
-            if published_at is not None
-            else 0.0
+            (received_at - published_at) * 1000.0 if published_at is not None else 0.0
         )
         stats = self._execute()
         completed_observation_id = self.observation_id
         self.observation_id += 1
-        render_ms, jpeg_size = self._publish_observation(completed_command=chunk.command)
+        render_ms, jpeg_size = self._publish_observation(
+            completed_command=chunk.command
+        )
         target_ms = stats.frames * CONTROL_PERIOD * 1000.0
         realtime = target_ms / stats.elapsed_ms if stats.elapsed_ms > 0.0 else 0.0
         self.node.log(
@@ -139,6 +142,8 @@ class SonicRuntime:
                     state = self.simulation.robot_state()
                     action, completed = self.policy.infer(state)
                 self.simulation.step(action)
+                if self.viewer is not None:
+                    self.viewer.sync()
                 frames += 1
 
                 # Completion is detected while producing the last reference
@@ -157,7 +162,9 @@ class SonicRuntime:
                     overrun_steps += 1
                     next_step = now
 
-    def _publish_observation(self, *, completed_command: str | None) -> tuple[float, int]:
+    def _publish_observation(
+        self, *, completed_command: str | None
+    ) -> tuple[float, int]:
         render_started_at = time.perf_counter()
         jpeg = self.renderer.capture_jpeg()
         render_ms = (time.perf_counter() - render_started_at) * 1000.0

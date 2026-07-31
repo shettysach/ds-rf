@@ -3,6 +3,9 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
+
+type ViewerMode = Literal["none", "native"]
 
 
 @dataclass(frozen=True)
@@ -26,6 +29,7 @@ class SonicConfig:
     image_width: int
     image_height: int
     jpeg_quality: int
+    viewer: ViewerMode
 
     @classmethod
     def from_env(cls) -> "SonicConfig":
@@ -36,6 +40,7 @@ class SonicConfig:
             image_width=_positive_int("DSRF_IMAGE_WIDTH"),
             image_height=_positive_int("DSRF_IMAGE_HEIGHT"),
             jpeg_quality=_bounded_int("DSRF_JPEG_QUALITY", minimum=1, maximum=100),
+            viewer=_viewer_mode(),
         )
 
 
@@ -77,3 +82,10 @@ def _bounded_int(name: str, *, minimum: int, maximum: int | None = None) -> int:
 def _optional_name(name: str) -> str | None:
     value = os.environ[name].strip()
     return None if value.lower() == "none" or not value else value
+
+
+def _viewer_mode() -> ViewerMode:
+    value = os.environ["DSRF_VIEWER"].strip().lower()
+    if value not in {"none", "native"}:
+        raise ValueError("DSRF_VIEWER must be 'none' or 'native'")
+    return value

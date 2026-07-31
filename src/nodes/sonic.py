@@ -7,6 +7,7 @@ from sonic.mjlab_env import SonicMjlabEnv
 from sonic.policy import SonicPolicy
 from sonic.renderer import SonicRenderer
 from sonic.runtime import SonicRuntime
+from sonic.viewer import NativeSonicViewer, SonicViewer
 
 
 def main() -> None:
@@ -18,9 +19,11 @@ def main() -> None:
         task=cfg.task,
         image_width=cfg.image_width,
         image_height=cfg.image_height,
-        show_viewer=True,
     )
+    viewer: SonicViewer | None = None
     try:
+        if cfg.viewer == "native":
+            viewer = NativeSonicViewer(simulation)
         with simulation.compute_context():
             policy = SonicPolicy(
                 cfg.sonic_dir,
@@ -31,16 +34,20 @@ def main() -> None:
         task_name = cfg.task or "none"
         node.log(
             "info",
-            f"SONIC initialized: task={task_name!r} device={cfg.device!r}",
+            f"SONIC initialized: task={task_name!r} device={cfg.device!r} "
+            f"viewer={cfg.viewer!r}",
             target="dsrf.sonic",
             fields={
                 "event": "sonic_initialized",
                 "task": task_name,
                 "device": cfg.device,
+                "viewer": cfg.viewer,
             },
         )
-        SonicRuntime(node, simulation, policy, renderer).run()
+        SonicRuntime(node, simulation, policy, renderer, viewer).run()
     finally:
+        if viewer is not None:
+            viewer.close()
         simulation.close()
 
 
