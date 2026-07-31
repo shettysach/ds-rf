@@ -12,14 +12,12 @@ if TYPE_CHECKING:
 def create_onnx_session(
     model_path: Path,
     *,
-    device: str,
+    device: torch.device,
     cuda_stream: torch.cuda.Stream | None = None,
 ) -> ort.InferenceSession:
     import torch
 
-    torch_device = torch.device(device)
-
-    if torch_device.type == "cpu":
+    if device.type == "cpu":
         return ort.InferenceSession(
             model_path,
             providers=["CPUExecutionProvider"],
@@ -27,14 +25,8 @@ def create_onnx_session(
 
     ort.preload_dlls()
 
-    device_id = (
-        torch.cuda.current_device()
-        if torch_device.index is None
-        else torch_device.index
-    )
-    provider_options = {
-        "device_id": str(device_id),
-    }
+    device_id = torch.cuda.current_device() if device.index is None else device.index
+    provider_options = {"device_id": str(device_id)}
 
     if cuda_stream is not None:
         stream_device_id = cuda_stream.device.index
@@ -44,9 +36,5 @@ def create_onnx_session(
     return ort.InferenceSession(
         model_path,
         sess_options=ort.SessionOptions(),
-        providers=[
-            ("CUDAExecutionProvider", provider_options),
-            # Some operations in the SONIC graphs currently fall back to CPU.
-            "CPUExecutionProvider",
-        ],
+        providers=[("CUDAExecutionProvider", provider_options)],
     )

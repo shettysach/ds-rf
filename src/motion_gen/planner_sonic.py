@@ -5,6 +5,7 @@ from enum import IntEnum
 from pathlib import Path
 
 import numpy as np
+import torch
 
 from shared.g1 import standing_qpos
 from shared.onnx import create_onnx_session
@@ -57,7 +58,8 @@ class PlannerSonic:
     """ONNX Runtime wrapper for NVIDIA's G1 kinematic planner."""
 
     def __init__(self, model_path: Path, *, device: str = "cpu") -> None:
-        self.session = create_onnx_session(model_path, device=device)
+        self.device = torch.device(device)
+        self.session = create_onnx_session(model_path, device=self.device)
         initial = standing_qpos()
         self._context = np.tile(initial, (1, PLANNER_CONTEXT_FRAMES, 1))
 

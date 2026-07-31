@@ -1,7 +1,9 @@
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
+import torch
 
 from shared import onnx as onnx_utils
 
@@ -16,15 +18,16 @@ class _FakeSession:
 
 
 @pytest.mark.parametrize(
-    ("device", "device_id"),
+    ("device", "current_device", "device_id"),
     [
-        ("cuda", "0"),
-        ("cuda:1", "1"),
+        ("cuda", 1, "1"),
+        ("cuda:1", 0, "1"),
     ],
 )
 def test_cuda_session_receives_device_and_user_stream(
     monkeypatch,
     device: str,
+    current_device: int,
     device_id: str,
 ) -> None:
     captured: dict[str, object] = {}
@@ -35,13 +38,20 @@ def test_cuda_session_receives_device_and_user_stream(
         captured["providers"] = providers
         return _FakeSession(providers)
 
-    monkeypatch.setattr(onnx_utils, "_load_cuda_libraries", lambda: None)
+    monkeypatch.setattr(onnx_utils.ort, "preload_dlls", lambda: None)
     monkeypatch.setattr(onnx_utils.ort, "InferenceSession", fake_session)
+    monkeypatch.setattr(torch.cuda, "current_device", lambda: current_device)
 
     session = onnx_utils.create_onnx_session(
         Path("model.onnx"),
-        device=device,
-        cuda_stream=SimpleNamespace(cuda_stream=12345),
+        device=torch.device(device),
+        cuda_stream=cast(
+            torch.cuda.Stream,
+            SimpleNamespace(
+                cuda_stream=12345,
+                device=SimpleNamespace(index=int(device_id)),
+            ),
+        ),
     )
 
     assert session.get_providers() == ["CUDAExecutionProvider"]

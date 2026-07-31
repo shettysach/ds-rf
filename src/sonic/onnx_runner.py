@@ -21,17 +21,13 @@ class OnnxModel:
         cuda_stream: torch.cuda.Stream | None = None,
     ) -> None:
         self.device = torch.device(device)
-        if self.device.type == "cuda":
-            self.device = torch.device("cuda", self.device.index or 0)
-        self.device_id = self.device.index or 0
-        self.cuda_stream_ptr = (
-            None if cuda_stream is None else int(cuda_stream.cuda_stream)
-        )
+
+        self.cuda_stream_ptr = None if cuda_stream is None else cuda_stream.cuda_stream
         self.input = torch.zeros(input_shape, dtype=torch.float32, device=self.device)
         self.output = torch.empty(output_shape, dtype=torch.float32, device=self.device)
         self.session = create_onnx_session(
             model_path,
-            device=str(self.device),
+            device=self.device,
             cuda_stream=cuda_stream,
         )
         self.input_name = self.session.get_inputs()[0].name
@@ -39,21 +35,29 @@ class OnnxModel:
         self._binding = self._create_binding()
 
     def _create_binding(self):
+        device_id = 0
+        if self.device.type == "cuda":
+            device_id = (
+                self.device.index
+                if self.device.index is not None
+                else torch.cuda.current_device()
+            )
+
         binding = self.session.io_binding()
         binding.bind_input(
             self.input_name,
             self.device.type,
-            self.device_id,
+            device_id,
             np.float32,
-            tuple(self.input.shape),
+            self.input.shape,
             self.input.data_ptr(),
         )
         binding.bind_output(
             self.output_name,
             self.device.type,
-            self.device_id,
+            device_id,
             np.float32,
-            tuple(self.output.shape),
+            self.output.shape,
             self.output.data_ptr(),
         )
         return binding
