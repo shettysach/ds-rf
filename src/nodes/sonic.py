@@ -15,6 +15,7 @@ def main() -> None:
     node = Node()
     simulation = SonicMjlabEnv(
         device=cfg.device,
+        task=cfg.task,
         image_width=cfg.image_width,
         image_height=cfg.image_height,
         show_viewer=True,
@@ -27,6 +28,17 @@ def main() -> None:
                 cuda_stream=simulation.cuda_stream,
             )
         renderer = SonicRenderer(simulation, jpeg_quality=cfg.jpeg_quality)
+        task_name = cfg.task or "none"
+        node.log(
+            "info",
+            f"SONIC initialized: task={task_name!r} device={cfg.device!r}",
+            target="dsrf.sonic",
+            fields={
+                "event": "sonic_initialized",
+                "task": task_name,
+                "device": cfg.device,
+            },
+        )
         SonicRuntime(node, simulation, policy, renderer).run()
     finally:
         simulation.close()

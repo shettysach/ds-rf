@@ -22,6 +22,7 @@ class MotionGenConfig:
 class SonicConfig:
     sonic_dir: Path
     device: str
+    task: str | None
     image_width: int
     image_height: int
     jpeg_quality: int
@@ -31,6 +32,7 @@ class SonicConfig:
         return cls(
             sonic_dir=Path(os.environ["DSRF_SONIC_DIR"]),
             device=os.environ["DSRF_DEVICE"],
+            task=_optional_name("DSRF_TASK"),
             image_width=_positive_int("DSRF_IMAGE_WIDTH"),
             image_height=_positive_int("DSRF_IMAGE_HEIGHT"),
             jpeg_quality=_bounded_int("DSRF_JPEG_QUALITY", minimum=1, maximum=100),
@@ -63,3 +65,8 @@ def _bounded_int(name: str, *, minimum: int, maximum: int | None = None) -> int:
         expected = f">= {minimum}" if maximum is None else f"{minimum}..{maximum}"
         raise ValueError(f"{name} must be in {expected}, got {value}")
     return value
+
+
+def _optional_name(name: str) -> str | None:
+    value = os.environ[name].strip()
+    return None if value.lower() == "none" or not value else value

@@ -31,6 +31,7 @@ class SonicMjlabEnv:
         device: str = "cpu",
         image_width: int = 640,
         image_height: int = 480,
+        task: str | None = None,
         show_viewer: bool = False,
     ) -> None:
         from mjlab.envs import ManagerBasedRlEnv
@@ -40,6 +41,7 @@ class SonicMjlabEnv:
             cfg=make_sonic_env_cfg(
                 image_width=image_width,
                 image_height=image_height,
+                task=task,
             ),
             device=str(torch_device),
             render_mode="rgb_array",

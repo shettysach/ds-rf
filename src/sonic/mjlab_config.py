@@ -18,12 +18,14 @@ from mjlab.scene import SceneCfg
 from mjlab.sim import MujocoCfg, SimulationCfg
 from mjlab.terrains import TerrainEntityCfg
 from mjlab.viewer import ViewerConfig
+from tasks.catalog import get_task
 
 
 def make_sonic_env_cfg(
     *,
     image_width: int = 640,
     image_height: int = 480,
+    task: str | None = None,
 ) -> ManagerBasedRlEnvCfg:
     """Build a minimal 50 Hz MJLab environment matching SONIC's G1 motors."""
 
@@ -60,13 +62,24 @@ def make_sonic_env_cfg(
                 0.25 * float(actuator.effort_limit) / actuator.stiffness
             )
 
+    task_definition = get_task(task)[1] if task is not None else None
+    scene = SceneCfg(
+        num_envs=1,
+        terrain=TerrainEntityCfg(terrain_type="plane"),
+        entities={"robot": robot_cfg},
+    )
+    if task_definition is not None:
+        scene.spec_fn = task_definition.make_spec_fn()
+
+    camera_distance = (
+        task_definition.camera_distance
+        if task_definition is not None and task_definition.camera_distance is not None
+        else 3.0
+    )
+
     return ManagerBasedRlEnvCfg(
         decimation=4,
-        scene=SceneCfg(
-            num_envs=1,
-            terrain=TerrainEntityCfg(terrain_type="plane"),
-            entities={"robot": robot_cfg},
-        ),
+        scene=scene,
         actions={
             "joint_position": JointPositionActionCfg(
                 entity_name="robot",
@@ -80,7 +93,7 @@ def make_sonic_env_cfg(
             origin_type=ViewerConfig.OriginType.ASSET_BODY,
             entity_name="robot",
             body_name="pelvis",
-            distance=3.0,
+            distance=camera_distance,
             elevation=-15.0,
             # The camera follows translation but keeps a world-fixed heading.
             # At reset it sits behind the +x-facing robot and looks along +x.

@@ -9,6 +9,10 @@ A three-node Dora closed loop for visual control of a Unitree G1 in MJLab:
 Only one segment is in flight. SONIC runs at 50 Hz and does not advance physics
 while waiting for the next motion.
 
+The default scene is the `portrait-corridors` task: three corridors terminate
+at portraits of Linus Torvalds, Andrej Karpathy, and Bugs Bunny. Set
+`DSRF_TASK=none` to use the empty plane instead.
+
 ## Setup
 
 Install Dora 1.0.0-rc.4 and the CPU environment:
@@ -57,6 +61,7 @@ Shell values override the defaults in `dataflow.yml`.
 | `DSRF_DEVICE` | `cpu` | Torch, MJLab, and ONNX device |
 | `DSRF_PLANNER_ONNX` | `/tmp/GEAR-SONIC/planner_sonic.onnx` | Planner model |
 | `DSRF_SONIC_DIR` | `/tmp/GEAR-SONIC` | SONIC model bundle |
+| `DSRF_TASK` | `portrait-corridors` | Task scene, or `none` for an empty plane |
 
 For example:
 

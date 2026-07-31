@@ -20,6 +20,7 @@ def test_runtime_environment_is_scoped_to_consuming_nodes() -> None:
     assert nodes["sonic"]["env"] == {
         "DSRF_DEVICE": "${DSRF_DEVICE:-cpu}",
         "DSRF_SONIC_DIR": "${DSRF_SONIC_DIR:-/tmp/GEAR-SONIC}",
+        "DSRF_TASK": "${DSRF_TASK:-portrait-corridors}",
         "DSRF_IMAGE_WIDTH": "${DSRF_IMAGE_WIDTH:-640}",
         "DSRF_IMAGE_HEIGHT": "${DSRF_IMAGE_HEIGHT:-480}",
         "DSRF_JPEG_QUALITY": "${DSRF_JPEG_QUALITY:-85}",
