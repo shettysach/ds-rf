@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from dora import Node
 
 from agent.vlm import LlamaServerClient
@@ -76,21 +78,104 @@ class AgentLoop:
                 f"Stale {error.source} error for observation {error.observation_id}"
             )
         if error.source != "motion-gen":
+            self.node.log(
+                "error",
+                f"[OBS {error.observation_id}] {error.source} error: {error.detail}",
+                target="dsrf.agent",
+                fields={
+                    "event": "pipeline_error",
+                    "observation_id": str(error.observation_id),
+                    "source": error.source,
+                    "detail": error.detail,
+                },
+            )
             raise RuntimeError(f"{error.source}: {error.detail}")
 
         self.invalid_responses += 1
+        previous = self.pending_command or ""
+        self.node.log(
+            "warn",
+            f"[OBS {error.observation_id}] invalid command: "
+            f"{previous!r} error={error.detail!r}",
+            target="dsrf.agent",
+            fields={
+                "event": "invalid_command",
+                "observation_id": str(error.observation_id),
+                "command": previous,
+                "detail": error.detail,
+                "attempt": str(self.invalid_responses),
+            },
+        )
         if self.invalid_responses >= MAX_INVALID_RESPONSES:
+            self.node.log(
+                "warn",
+                f"[OBS {error.observation_id}] fallback command: "
+                f"{FALLBACK_COMMAND!r} after {self.invalid_responses} invalid responses",
+                target="dsrf.agent",
+                fields={
+                    "event": "fallback_command",
+                    "observation_id": str(error.observation_id),
+                    "command": FALLBACK_COMMAND,
+                    "invalid_responses": str(self.invalid_responses),
+                },
+            )
             self._send(FALLBACK_COMMAND)
             return
-        previous = self.pending_command or ""
         feedback = f"Your previous response {previous!r} was invalid: {error.detail}"
         self._query_and_send(retry_feedback=feedback)
 
     def _query_and_send(self, *, retry_feedback: str | None = None) -> None:
         assert self.observation is not None
-        command = self.client.complete(
-            self.observation,
-            retry_feedback=retry_feedback,
+        observation_id = self.observation.observation_id
+        attempt = self.invalid_responses
+        fields = {
+            "event": "vlm_request",
+            "observation_id": str(observation_id),
+            "attempt": str(attempt),
+        }
+        self.node.log(
+            "debug",
+            f"[OBS {observation_id}] VLM request started retry={attempt}",
+            target="dsrf.agent.vlm",
+            fields=fields,
+        )
+        started_at = time.perf_counter()
+        try:
+            command = self.client.complete(
+                self.observation,
+                retry_feedback=retry_feedback,
+            )
+        except Exception as exc:
+            vlm_ms = (time.perf_counter() - started_at) * 1000.0
+            detail = f"{type(exc).__name__}: {exc}"
+            self.node.log(
+                "error",
+                f"[OBS {observation_id}] VLM request failed: {detail}",
+                target="dsrf.agent.vlm",
+                fields={
+                    "event": "vlm_error",
+                    "observation_id": str(observation_id),
+                    "attempt": str(attempt),
+                    "vlm_ms": f"{vlm_ms:.1f}",
+                    "detail": detail,
+                },
+            )
+            raise
+
+        vlm_ms = (time.perf_counter() - started_at) * 1000.0
+        self.node.log(
+            "info",
+            f"[OBS {observation_id}] VLM command: {command!r} "
+            f"vlm_ms={vlm_ms:.1f} retry={attempt}",
+            target="dsrf.agent.vlm",
+            fields={
+                "event": "vlm_response",
+                "observation_id": str(observation_id),
+                "command": command,
+                "vlm_ms": f"{vlm_ms:.1f}",
+                "attempt": str(attempt),
+                "jpeg_kb": f"{len(self.observation.jpeg) / 1024.0:.1f}",
+            },
         )
         self._send(command)
 

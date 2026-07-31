@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from typing import Any
 
 import torch
@@ -21,6 +22,13 @@ from sonic.renderer import SonicRenderer
 CONTROL_PERIOD = 1.0 / SONIC_FPS
 
 
+@dataclass(frozen=True)
+class ExecutionStats:
+    frames: int
+    elapsed_ms: float
+    overrun_steps: int
+
+
 class SonicRuntime:
     def __init__(
         self,
@@ -34,9 +42,22 @@ class SonicRuntime:
         self.policy = policy
         self.renderer = renderer
         self.observation_id = 0
+        self._observation_published_at: float | None = None
 
     def run(self) -> None:
-        self._publish_observation(completed_command=None)
+        render_ms, jpeg_size = self._publish_observation(completed_command=None)
+        self.node.log(
+            "info",
+            f"[OBS 0] initial observation: render_ms={render_ms:.1f} "
+            f"jpeg_kb={jpeg_size / 1024.0:.1f} waiting=motion",
+            target="dsrf.sonic",
+            fields={
+                "event": "initial_observation",
+                "observation_id": "0",
+                "render_ms": f"{render_ms:.1f}",
+                "jpeg_kb": f"{jpeg_size / 1024.0:.1f}",
+            },
+        )
         for event in self.node:
             if event["type"] == "STOP":
                 return
@@ -45,6 +66,7 @@ class SonicRuntime:
             self._accept_motion(event)
 
     def _accept_motion(self, event: dict[str, Any]) -> None:
+        received_at = time.perf_counter()
         metadata = dict(event.get("metadata") or {})
         try:
             chunk = motion_from_arrow(event["value"], metadata)
@@ -66,12 +88,47 @@ class SonicRuntime:
                 self._report_error(str(exc))
                 return
 
-        self._execute()
+        published_at = self._observation_published_at
+        pause_ms = (
+            (received_at - published_at) * 1000.0
+            if published_at is not None
+            else 0.0
+        )
+        stats = self._execute()
+        completed_observation_id = self.observation_id
         self.observation_id += 1
-        self._publish_observation(completed_command=chunk.command)
+        render_ms, jpeg_size = self._publish_observation(completed_command=chunk.command)
+        target_ms = stats.frames * CONTROL_PERIOD * 1000.0
+        realtime = target_ms / stats.elapsed_ms if stats.elapsed_ms > 0.0 else 0.0
+        self.node.log(
+            "info",
+            f"[OBS {completed_observation_id}->{self.observation_id}] motion complete: "
+            f"command={chunk.command!r} pause_ms={pause_ms:.1f} "
+            f"frames={stats.frames} target_ms={target_ms:.1f} "
+            f"exec_ms={stats.elapsed_ms:.1f} realtime={realtime:.3f} "
+            f"render_ms={render_ms:.1f}",
+            target="dsrf.sonic",
+            fields={
+                "event": "motion_complete",
+                "observation_id": str(completed_observation_id),
+                "next_observation_id": str(self.observation_id),
+                "command": chunk.command,
+                "pause_ms": f"{pause_ms:.1f}",
+                "frames": str(stats.frames),
+                "target_ms": f"{target_ms:.1f}",
+                "exec_ms": f"{stats.elapsed_ms:.1f}",
+                "realtime": f"{realtime:.3f}",
+                "overrun_steps": str(stats.overrun_steps),
+                "render_ms": f"{render_ms:.1f}",
+                "jpeg_kb": f"{jpeg_size / 1024.0:.1f}",
+            },
+        )
 
-    def _execute(self) -> None:
+    def _execute(self) -> ExecutionStats:
+        started_at = time.perf_counter()
         next_step = time.perf_counter()
+        frames = 0
+        overrun_steps = 0
         with torch.no_grad():
             while True:
                 delay = next_step - time.perf_counter()
@@ -82,27 +139,49 @@ class SonicRuntime:
                     state = self.simulation.robot_state()
                     action, completed = self.policy.infer(state)
                 self.simulation.step(action)
+                frames += 1
 
                 # Completion is detected while producing the last reference
                 # action. Capture only after that action's physics step.
                 if completed:
-                    return
+                    return ExecutionStats(
+                        frames=frames,
+                        elapsed_ms=(time.perf_counter() - started_at) * 1000.0,
+                        overrun_steps=overrun_steps,
+                    )
 
                 next_step += CONTROL_PERIOD
                 now = time.perf_counter()
                 if next_step < now:
                     # Do not execute burst catch-up steps after an overrun.
+                    overrun_steps += 1
                     next_step = now
 
-    def _publish_observation(self, *, completed_command: str | None) -> None:
+    def _publish_observation(self, *, completed_command: str | None) -> tuple[float, int]:
+        render_started_at = time.perf_counter()
+        jpeg = self.renderer.capture_jpeg()
+        render_ms = (time.perf_counter() - render_started_at) * 1000.0
         observation = VisualObservation(
             observation_id=self.observation_id,
             completed_command=completed_command,
-            jpeg=self.renderer.capture_jpeg(),
+            jpeg=jpeg,
         )
         data, metadata = observation_to_arrow(observation)
         self.node.send_output("observation", data, metadata=metadata)
+        self._observation_published_at = time.perf_counter()
+        return render_ms, len(jpeg)
 
     def _report_error(self, detail: str) -> None:
+        self.node.log(
+            "error",
+            f"[OBS {self.observation_id}] SONIC error: {detail}",
+            target="dsrf.sonic",
+            fields={
+                "event": "pipeline_error",
+                "observation_id": str(self.observation_id),
+                "source": "sonic",
+                "detail": detail,
+            },
+        )
         error = PipelineError("sonic", self.observation_id, detail)
         self.node.send_output("error", pipeline_error_to_arrow(error))

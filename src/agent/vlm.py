@@ -42,9 +42,7 @@ class LlamaServerClient:
         *,
         retry_feedback: str | None = None,
     ) -> str:
-        messages: list[dict[str, Any]] = [
-            {"role": "system", "content": SYSTEM_PROMPT}
-        ]
+        messages: list[dict[str, Any]] = [{"role": "system", "content": SYSTEM_PROMPT}]
         for turn in self._history:
             messages.append(_user_message(turn.observation))
             messages.append({"role": "assistant", "content": turn.assistant})
@@ -83,9 +81,7 @@ def _user_message(
     text = f"Completed command: {completed}\n\n{COMMAND_PROMPT}"
     if retry_feedback is not None:
         text = f"{retry_feedback}\n\n{text}"
-    image_url = (
-        "data:image/jpeg;base64," + b64encode(observation.jpeg).decode("ascii")
-    )
+    image_url = "data:image/jpeg;base64," + b64encode(observation.jpeg).decode("ascii")
     return {
         "role": "user",
         "content": [

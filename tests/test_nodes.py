@@ -25,12 +25,16 @@ class _Node:
     def __init__(self, events: list[dict[str, object]]) -> None:
         self.events = iter(events)
         self.outputs: list[tuple[str, object, dict[str, object]]] = []
+        self.logs: list[tuple[str, str, dict[str, object]]] = []
 
     def __iter__(self):
         return self.events
 
     def send_output(self, output_id, value, **kwargs) -> None:
         self.outputs.append((output_id, value, kwargs))
+
+    def log(self, level, message, **kwargs) -> None:
+        self.logs.append((level, message, kwargs))
 
 
 def _command_event(observation_id: int, text: str) -> dict[str, object]:
@@ -82,6 +86,7 @@ def test_motion_gen_generates_one_segment_per_command(monkeypatch) -> None:
     chunk = motion_from_arrow(value, kwargs["metadata"])
     assert chunk.observation_id == 4
     assert chunk.command == "walk forward 0.4"
+    assert any("motion generated" in message for _, message, _ in node.logs)
 
 
 def test_motion_gen_reports_invalid_raw_vlm_response(monkeypatch) -> None:
@@ -194,6 +199,9 @@ def test_sonic_steps_final_action_before_capture(monkeypatch) -> None:
     assert first.completed_command is None
     assert second.observation_id == 1
     assert second.completed_command == "walk forward"
+    assert any(
+        "[OBS 0->1] motion complete" in message for _, message, _ in node.logs
+    )
 
 
 def test_sonic_rejects_motion_for_stale_observation() -> None:

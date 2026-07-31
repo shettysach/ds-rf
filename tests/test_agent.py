@@ -70,12 +70,16 @@ class _Node:
     def __init__(self, events: list[dict[str, object]]) -> None:
         self.events = iter(events)
         self.outputs: list[tuple[str, object, dict[str, object]]] = []
+        self.logs: list[tuple[str, str, dict[str, object]]] = []
 
     def __iter__(self):
         return self.events
 
     def send_output(self, output_id, value, **kwargs) -> None:
         self.outputs.append((output_id, value, kwargs))
+
+    def log(self, level, message, **kwargs) -> None:
+        self.logs.append((level, message, kwargs))
 
 
 class _Client:
@@ -139,6 +143,15 @@ def test_agent_retries_three_invalid_responses_then_stands() -> None:
     ]
     assert client.feedback[0] is None
     assert all(feedback is not None for feedback in client.feedback[1:])
+    vlm_messages = [message for _, message, _ in node.logs if "VLM command" in message]
+    assert len(vlm_messages) == 3
+    assert "[OBS 0] VLM command: 'invalid one'" in vlm_messages[0]
+    assert vlm_messages[0].endswith("retry=0")
+    assert "[OBS 0] VLM command: 'invalid two'" in vlm_messages[1]
+    assert vlm_messages[1].endswith("retry=1")
+    assert "[OBS 0] VLM command: 'invalid three'" in vlm_messages[2]
+    assert vlm_messages[2].endswith("retry=2")
+    assert any("fallback command: 'stand'" in message for _, message, _ in node.logs)
 
 
 def test_agent_commits_exact_completed_command() -> None:
