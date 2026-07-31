@@ -3,13 +3,10 @@ import numpy as np
 from shared.messages import (
     AgentCommand,
     MotionChunk,
-    MotionCommandRequest,
     PipelineError,
     VisualObservation,
     agent_command_from_arrow,
     agent_command_to_arrow,
-    command_from_arrow,
-    command_to_arrow,
     motion_from_arrow,
     motion_to_arrow,
     observation_from_arrow,
@@ -17,13 +14,6 @@ from shared.messages import (
     pipeline_error_from_arrow,
     pipeline_error_to_arrow,
 )
-
-
-def test_command_request_arrow_round_trip() -> None:
-    command = MotionCommandRequest.from_text("walk left 0.8")
-    assert command.text == "walk left 0.8"
-    value, metadata = command_to_arrow(command)
-    assert command_from_arrow(value, metadata) == command
 
 
 def test_motion_arrow_round_trip() -> None:

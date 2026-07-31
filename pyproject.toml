@@ -30,8 +30,6 @@ cu128 = [
 
 [project.scripts]
 dsrf-agent = "nodes.agent:main"
-dsrf-input = "input_node:main"
-dsrf-command = "input_node.client:main"
 dsrf-motion-gen = "nodes.motion_gen:main"
 dsrf-sonic = "nodes.sonic:main"
 
@@ -76,7 +74,6 @@ explicit = true
 [tool.hatch.build.targets.wheel]
 packages = [
     "src/agent",
-    "src/input_node",
     "src/motion_gen",
     "src/nodes",
     "src/shared",

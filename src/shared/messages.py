@@ -2,36 +2,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass
-from enum import StrEnum
 from typing import Any
-from uuid import uuid4
 
 import numpy as np
 import pyarrow as pa
 
 MOTION_COLUMNS = 36
 SONIC_FPS = 50
-
-
-class StatusState(StrEnum):
-    READY = "ready"
-    GENERATING = "generating"
-    PLAYING = "playing"
-    DONE = "done"
-    ERROR = "error"
-
-
-@dataclass(frozen=True)
-class MotionCommandRequest:
-    command_id: str
-    text: str
-
-    @classmethod
-    def from_text(cls, text: str) -> "MotionCommandRequest":
-        normalized = text.strip()
-        if not normalized:
-            raise ValueError("Command is empty")
-        return cls(command_id=uuid4().hex, text=normalized)
 
 
 @dataclass(frozen=True)
@@ -55,14 +32,6 @@ class MotionChunk:
         if not np.isfinite(qpos).all():
             raise ValueError("Motion chunk contains NaN or infinite values")
         object.__setattr__(self, "qpos", np.ascontiguousarray(qpos))
-
-
-@dataclass(frozen=True)
-class RuntimeStatus:
-    source: str
-    state: StatusState
-    command_id: str | None = None
-    detail: str | None = None
 
 
 @dataclass(frozen=True)
@@ -105,21 +74,6 @@ class PipelineError:
             raise ValueError("Error source is empty")
         if not self.detail:
             raise ValueError("Error detail is empty")
-
-
-def command_to_arrow(command: MotionCommandRequest) -> tuple[pa.Array, dict[str, str]]:
-    return pa.array([command.text], type=pa.string()), {
-        "command_id": command.command_id
-    }
-
-
-def command_from_arrow(
-    value: pa.Array, metadata: dict[str, Any]
-) -> MotionCommandRequest:
-    return MotionCommandRequest(
-        command_id=str(metadata["command_id"]),
-        text=_string_from_arrow(value),
-    )
 
 
 def motion_to_arrow(chunk: MotionChunk) -> tuple[pa.Array, dict[str, str]]:
@@ -199,20 +153,6 @@ def pipeline_error_from_arrow(value: pa.Array) -> PipelineError:
         source=str(data["source"]),
         observation_id=int(data["observation_id"]),
         detail=str(data["detail"]),
-    )
-
-
-def status_to_arrow(status: RuntimeStatus) -> pa.Array:
-    return _json_to_arrow(asdict(status))
-
-
-def status_from_arrow(value: pa.Array) -> RuntimeStatus:
-    data = _json_from_arrow(value)
-    return RuntimeStatus(
-        source=str(data["source"]),
-        state=StatusState(str(data["state"])),
-        command_id=data.get("command_id"),
-        detail=data.get("detail"),
     )
 
 
