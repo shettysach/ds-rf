@@ -3,7 +3,7 @@ requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ds-rf"
+name = "dsrf"
 version = "0.1.0"
 description = "Dora pipeline for G1 motion generation and SONIC control in MJLab"
 readme = "README.md"
@@ -28,10 +28,10 @@ cu128 = [
 ]
 
 [project.scripts]
-ds-rf-input = "input_node:main"
-ds-rf-command = "input_node.client:main"
-ds-rf-motion-gen = "nodes.motion_gen:main"
-ds-rf-sonic = "nodes.sonic:main"
+dsrf-input = "input_node:main"
+dsrf-command = "input_node.client:main"
+dsrf-motion-gen = "nodes.motion_gen:main"
+dsrf-sonic = "nodes.sonic:main"
 
 [dependency-groups]
 dev = [

@@ -3,7 +3,7 @@
 nodes:
   - id: input
     path: uv
-    args: run ds-rf-input
+    args: run dsrf-input
     inputs:
       motion_gen_status: motion-gen/status
       sonic_status: sonic/status
@@ -12,10 +12,10 @@ nodes:
 
   - id: motion-gen
     path: uv
-    args: run ds-rf-motion-gen
+    args: run dsrf-motion-gen
     env:
-      DS_RF_DEVICE: "${DS_RF_DEVICE:-cpu}"
-      DS_RF_PLANNER_ONNX: "${DS_RF_PLANNER_ONNX:-/tmp/GEAR-SONIC/planner_sonic.onnx}"
+      DSRF_DEVICE: "${DSRF_DEVICE:-cpu}"
+      DSRF_PLANNER_ONNX: "${DSRF_PLANNER_ONNX:-/tmp/GEAR-SONIC/planner_sonic.onnx}"
     inputs:
       command: input/command
       sonic_status: sonic/status
@@ -25,10 +25,10 @@ nodes:
 
   - id: sonic
     path: uv
-    args: run ds-rf-sonic
+    args: run dsrf-sonic
     env:
-      DS_RF_DEVICE: "${DS_RF_DEVICE:-cpu}"
-      DS_RF_SONIC_DIR: "${DS_RF_SONIC_DIR:-/tmp/GEAR-SONIC}"
+      DSRF_DEVICE: "${DSRF_DEVICE:-cpu}"
+      DSRF_SONIC_DIR: "${DSRF_SONIC_DIR:-/tmp/GEAR-SONIC}"
     inputs:
       motion: motion-gen/motion
     outputs:

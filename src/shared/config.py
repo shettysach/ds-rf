@@ -13,8 +13,8 @@ class MotionGenConfig:
     @classmethod
     def from_env(cls) -> "MotionGenConfig":
         return cls(
-            planner_onnx=Path(os.environ["DS_RF_PLANNER_ONNX"]),
-            device=os.environ["DS_RF_DEVICE"],
+            planner_onnx=Path(os.environ["DSRF_PLANNER_ONNX"]),
+            device=os.environ["DSRF_DEVICE"],
         )
 
 
@@ -26,6 +26,6 @@ class SonicConfig:
     @classmethod
     def from_env(cls) -> "SonicConfig":
         return cls(
-            sonic_dir=Path(os.environ["DS_RF_SONIC_DIR"]),
-            device=os.environ["DS_RF_DEVICE"],
+            sonic_dir=Path(os.environ["DSRF_SONIC_DIR"]),
+            device=os.environ["DSRF_DEVICE"],
         )

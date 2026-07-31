@@ -1,4 +1,4 @@
-# ds-rf
+# dsrf
 
 Runs a three-node Dora dataflow for Unitree G1:
 
@@ -35,15 +35,15 @@ override those defaults when Dora loads the dataflow.
 
 | Variable | Used by | Default |
 |---|---|---|
-| `DS_RF_DEVICE` | `motion-gen`, `sonic` | `cpu` |
-| `DS_RF_PLANNER_ONNX` | `motion-gen` | `/tmp/GEAR-SONIC/planner_sonic.onnx` |
-| `DS_RF_SONIC_DIR` | `sonic` | `/tmp/GEAR-SONIC` |
+| `DSRF_DEVICE` | `motion-gen`, `sonic` | `cpu` |
+| `DSRF_PLANNER_ONNX` | `motion-gen` | `/tmp/GEAR-SONIC/planner_sonic.onnx` |
+| `DSRF_SONIC_DIR` | `sonic` | `/tmp/GEAR-SONIC` |
 
 No exports are required for the default CPU configuration. For example, use
 the low-latency SONIC bundle with:
 
 ```bash
-DS_RF_SONIC_DIR=/tmp/GEAR-SONIC/low_latency \
+DSRF_SONIC_DIR=/tmp/GEAR-SONIC/low_latency \
 dora run dataflow.yml
 ```
 
@@ -56,7 +56,7 @@ dora run dataflow.yml
 Then open a second terminal in the repository and start the interactive client:
 
 ```bash
-uv run ds-rf-command
+uv run dsrf-command
 ```
 
 The command vocabulary follows the V2 `planner_sonic.onnx` interface. Run
@@ -85,9 +85,9 @@ the remaining portion of the current roughly 0.8--2.1 second chunk, plus the
 time needed for the next planner inference. All modes, including `stand` and
 gestures, repeat under this rule.
 
-The socket defaults to `/tmp/ds-rf-command-<uid>.sock` and is intentionally not
+The socket defaults to `/tmp/dsrf-command-<uid>.sock` and is intentionally not
 set by `dataflow.yml`: the client runs outside Dora. Export
-`DS_RF_COMMAND_SOCKET` in both terminals when overriding it. `.env.example`
+`DSRF_COMMAND_SOCKET` in both terminals when overriding it. `.env.example`
 lists optional overrides but is not loaded automatically.
 
 ## CUDA 12.8
@@ -96,11 +96,11 @@ Install the mutually exclusive GPU extra and select a CUDA device:
 
 ```bash
 uv sync --extra cu128
-export DS_RF_DEVICE=cuda:0
+export DSRF_DEVICE=cuda:0
 dora run dataflow.yml
 ```
 
-`DS_RF_DEVICE` selects MJLab, Torch, and ONNX Runtime together. In the SONIC
+`DSRF_DEVICE` selects MJLab, Torch, and ONNX Runtime together. In the SONIC
 process, ONNX Runtime uses CUDA I/O binding on MJLab's Warp stream, so robot
 state, policy observations, actions, and simulation stay on the device. The
 motion generator runs in a separate Dora process and uses its own CUDA stream.
@@ -108,7 +108,7 @@ motion generator runs in a separate Dora process and uses its own CUDA stream.
 Before starting the full graph, check the shared-stream integration directly:
 
 ```bash
-WARP_CACHE_PATH=/tmp/ds-rf-warp-cache \
+WARP_CACHE_PATH=/tmp/dsrf-warp-cache \
   uv run pytest -q \
   tests/test_integration.py::test_mjlab_and_sonic_share_one_cuda_stream -s
 ```
@@ -121,5 +121,5 @@ The `cpu` and `cu128` extras must not be installed together. To switch back:
 
 ```bash
 uv sync --extra cpu
-export DS_RF_DEVICE=cpu
+export DSRF_DEVICE=cpu
 ```

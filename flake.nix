@@ -1,5 +1,5 @@
 {
-  description = "Local ds-rf development environment";
+  description = "Local dsrf development environment";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

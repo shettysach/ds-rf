@@ -9,10 +9,10 @@ MAX_COMMAND_BYTES = 4096
 
 
 def command_socket_path() -> Path:
-    configured = os.environ.get("DS_RF_COMMAND_SOCKET")
+    configured = os.environ.get("DSRF_COMMAND_SOCKET")
     if configured:
         return Path(configured)
-    return Path(f"/tmp/ds-rf-command-{os.getuid()}.sock")
+    return Path(f"/tmp/dsrf-command-{os.getuid()}.sock")
 
 
 class CommandServer:

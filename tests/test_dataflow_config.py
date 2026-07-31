@@ -9,12 +9,12 @@ def test_runtime_environment_is_scoped_to_consuming_nodes() -> None:
 
     assert "env" not in nodes["input"]
     assert nodes["motion-gen"]["env"] == {
-        "DS_RF_DEVICE": "${DS_RF_DEVICE:-cpu}",
-        "DS_RF_PLANNER_ONNX": (
-            "${DS_RF_PLANNER_ONNX:-/tmp/GEAR-SONIC/planner_sonic.onnx}"
+        "DSRF_DEVICE": "${DSRF_DEVICE:-cpu}",
+        "DSRF_PLANNER_ONNX": (
+            "${DSRF_PLANNER_ONNX:-/tmp/GEAR-SONIC/planner_sonic.onnx}"
         ),
     }
     assert nodes["sonic"]["env"] == {
-        "DS_RF_DEVICE": "${DS_RF_DEVICE:-cpu}",
-        "DS_RF_SONIC_DIR": "${DS_RF_SONIC_DIR:-/tmp/GEAR-SONIC}",
+        "DSRF_DEVICE": "${DSRF_DEVICE:-cpu}",
+        "DSRF_SONIC_DIR": "${DSRF_SONIC_DIR:-/tmp/GEAR-SONIC}",
     }
