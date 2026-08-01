@@ -25,7 +25,7 @@ class SonicReferenceGhost:
         self._env = env
         self._robot = env.scene["robot"]
         self._reference = reference
-        self._ghost_model: Any | None = None
+        self._ghost_model = self._make_ghost_model()  # mujoco.MjModel
 
     def draw(self, visualizer: DebugVisualizer) -> None:
         pose = self._reference.visualization_pose()
@@ -36,17 +36,6 @@ class SonicReferenceGhost:
         indexing = self._robot.indexing
         free_joint_q_adr = indexing.free_joint_q_adr.cpu().numpy()
         joint_q_adr = indexing.joint_q_adr.cpu().numpy()
-        if len(free_joint_q_adr) < 7:
-            raise ValueError(
-                "SONIC reference ghost requires a floating-base robot with "
-                f"at least 7 root qpos addresses, got {len(free_joint_q_adr)}"
-            )
-        if len(joint_q_adr) != joint_pos.numel():
-            raise ValueError(
-                "SONIC reference joint count does not match robot qpos indexing: "
-                f"{joint_pos.numel()} reference joints vs {len(joint_q_adr)} "
-                "qpos addresses"
-            )
 
         qpos = np.zeros(self._env.sim.mj_model.nq, dtype=np.float64)
         qpos[free_joint_q_adr[:3]] = root_pos_w.detach().cpu().numpy()
@@ -54,21 +43,14 @@ class SonicReferenceGhost:
         qpos[joint_q_adr] = joint_pos.detach().cpu().numpy()
         visualizer.add_ghost_mesh(
             qpos,
-            model=self._get_ghost_model(),
+            model=self._ghost_model,
             alpha=float(REFERENCE_GHOST_COLOR[3]),
             label="sonic_reference",
         )
 
-    def _get_ghost_model(self) -> Any:
-        if self._ghost_model is None:
-            model = copy.deepcopy(self._env.sim.mj_model)
-            for geom_id in range(model.ngeom):
-                if (
-                    model.geom_contype[geom_id] != 0
-                    or model.geom_conaffinity[geom_id] != 0
-                ):
-                    model.geom_rgba[geom_id, 3] = 0.0
-                else:
-                    model.geom_rgba[geom_id] = REFERENCE_GHOST_COLOR
-            self._ghost_model = model
-        return self._ghost_model
+    def _make_ghost_model(self) -> Any:  # mujoco.MjModel
+        model = copy.deepcopy(self._env.sim.mj_model)
+        collision_geoms = (model.geom_contype != 0) | (model.geom_conaffinity != 0)
+        model.geom_rgba[collision_geoms, 3] = 0.0
+        model.geom_rgba[~collision_geoms] = REFERENCE_GHOST_COLOR
+        return model
