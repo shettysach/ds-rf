@@ -54,6 +54,7 @@ def make_portrait_corridors_spec_fn(
     wall_height: float = 2.5,
     wall_thickness: float = 0.2,
     wall_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0),
+    portrait_wall_rgba: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0),
 ) -> Callable[["MjSpec"], None]:
     """Create three corridors with a randomly assigned portrait in each one."""
 
@@ -85,7 +86,7 @@ def make_portrait_corridors_spec_fn(
             name="portrait_corridors_end_wall",
             pos=(end_x, 0.0, wall_z),
             size=(half_wall_thickness, half_total_width, half_wall_height),
-            rgba=wall_rgba,
+            rgba=portrait_wall_rgba,
         )
         for side, y in (("north", half_total_width), ("south", -half_total_width)):
             _add_wall(

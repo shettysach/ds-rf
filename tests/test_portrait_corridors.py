@@ -56,6 +56,20 @@ def test_portrait_corridors_spec_adds_portraits_walls_and_cameras() -> None:
     }
     assert len([body for body in spec.bodies if body.name.endswith("_wall")]) == 6
 
+    walls = {body.name: body for body in spec.bodies if body.name.endswith("_wall")}
+    assert tuple(walls["portrait_corridors_end_wall"].geoms[0].rgba) == (
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+    )
+    assert tuple(walls["portrait_corridors_back_wall"].geoms[0].rgba) == (
+        0.5,
+        0.5,
+        0.5,
+        1.0,
+    )
+
     cameras = {camera.name: camera for camera in spec.cameras}
     assert set(cameras) == {"corridor_left", "corridor_center", "corridor_right"}
     assert [tuple(camera.pos) for camera in cameras.values()] == pytest.approx(
