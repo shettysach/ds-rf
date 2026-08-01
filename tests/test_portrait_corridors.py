@@ -7,10 +7,9 @@ from sonic.mjlab_config import make_sonic_env_cfg
 
 
 def test_catalog_contains_portrait_corridors() -> None:
-    name, definition = get_task("portrait-corridors")
+    definition = get_task("portrait-corridors")
 
-    assert name == "portrait-corridors"
-    assert definition is TASKS[name]
+    assert definition is TASKS["portrait-corridors"]
     assert definition.objective == "Stand in front of the image of the cartoon."
     assert definition.camera_distance == 2.0
 

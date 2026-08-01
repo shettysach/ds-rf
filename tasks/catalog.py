@@ -29,9 +29,8 @@ TASKS: dict[TaskName, TaskDefinition] = {
 }
 
 
-def get_task(name: str) -> tuple[TaskName, TaskDefinition]:
+def get_task(name: str) -> TaskDefinition:
     if name not in TASKS:
         available = ", ".join(TASKS)
         raise ValueError(f"Unknown task {name!r}. Available: {available}") from None
-    task_name = name
-    return task_name, TASKS[task_name]
+    return TASKS[name]

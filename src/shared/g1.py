@@ -73,8 +73,7 @@ DEFAULT_JOINT_POS_MJLAB = np.array(
     dtype=np.float32,
 )
 
-# For a vector in SONIC/IsaacLab order, select these indices to obtain
-# MuJoCo/MJLab natural order.
+# For a vector in SONIC/IsaacLab order, select these indices to obtain MuJoCo/MJLab natural order.
 MJLAB_FROM_SONIC = np.array(
     [
         0,

@@ -62,7 +62,7 @@ def make_sonic_env_cfg(
                 0.25 * float(actuator.effort_limit) / actuator.stiffness
             )
 
-    task_definition = get_task(task)[1] if task is not None else None
+    task_definition = get_task(task) if task is not None else None
     scene = SceneCfg(
         num_envs=1,
         terrain=TerrainEntityCfg(terrain_type="plane"),
