@@ -35,9 +35,7 @@ class SonicManagerBasedRlEnv(ManagerBasedRlEnv):
         self._application_visualizers: list[Callable[[DebugVisualizer], None]] = []
         super().__init__(*args, **kwargs)
 
-    def add_debug_visualizer(
-        self, callback: Callable[[DebugVisualizer], None]
-    ) -> None:
+    def add_debug_visualizer(self, callback: Callable[[DebugVisualizer], None]) -> None:
         self._application_visualizers.append(callback)
 
     def update_visualizers(self, visualizer: DebugVisualizer) -> None:
@@ -105,9 +103,7 @@ class SonicMjlabEnv:
         with self.compute_context():
             return self._env.reset()
 
-    def add_debug_visualizer(
-        self, callback: Callable[[DebugVisualizer], None]
-    ) -> None:
+    def add_debug_visualizer(self, callback: Callable[[DebugVisualizer], None]) -> None:
         self._env.add_debug_visualizer(callback)
 
     def render(self) -> np.ndarray:

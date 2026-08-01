@@ -10,6 +10,9 @@ if TYPE_CHECKING:
     from mjlab.viewer import EnvProtocol, NativeMujocoViewer
 
     from sonic.mjlab_env import SonicMjlabEnv
+    from sonic.policy import MotionReference
+
+from sonic.reference_ghost import SonicReferenceGhost
 
 
 class SonicViewer(Protocol):
@@ -21,8 +24,16 @@ class SonicViewer(Protocol):
 class NativeSonicViewer:
     """Passive MJLab viewer that never owns simulation stepping."""
 
-    def __init__(self, simulation: SonicMjlabEnv) -> None:
+    def __init__(
+        self,
+        simulation: SonicMjlabEnv,
+        reference: MotionReference | None = None,
+    ) -> None:
         from mjlab.viewer import NativeMujocoViewer
+
+        if reference is not None:
+            reference_ghost = SonicReferenceGhost(simulation.unwrapped, reference)
+            simulation.add_debug_visualizer(reference_ghost.draw)
 
         self._viewer: NativeMujocoViewer = NativeMujocoViewer(
             cast("EnvProtocol", simulation),
