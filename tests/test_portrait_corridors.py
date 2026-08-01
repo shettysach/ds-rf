@@ -68,3 +68,33 @@ def test_portrait_corridors_spec_adds_portraits_walls_and_cameras() -> None:
     assert model.ncam == 3
     assert model.mat_texid[:, 1].tolist() == [0, 1, 2]
     assert model.mesh_texcoordnum.tolist() == [4, 4, 4]
+
+
+def test_portraits_fill_each_corridor() -> None:
+    spec = mujoco.MjSpec()  # ty: ignore[unresolved-attribute]
+    make_portrait_corridors_spec_fn(seed=1234)(spec)
+
+    positions = [
+        tuple(body.pos) for body in spec.bodies if body.name.endswith("_portrait")
+    ]
+    assert len(positions) == 3
+    assert sorted(position[1] for position in positions) == [-2.0, 0.0, 2.0]
+    for x, _, z in positions:
+        assert x == pytest.approx(5.89)
+        assert z == pytest.approx(1.25)
+
+
+def test_portrait_assignment_is_reproducible_with_a_seed() -> None:
+    first_spec = mujoco.MjSpec()  # ty: ignore[unresolved-attribute]
+    second_spec = mujoco.MjSpec()  # ty: ignore[unresolved-attribute]
+    make_portrait_corridors_spec_fn(seed=1234)(first_spec)
+    make_portrait_corridors_spec_fn(seed=1234)(second_spec)
+
+    def portrait_positions(spec) -> dict[str, tuple[float, ...]]:
+        return {
+            body.name: tuple(body.pos)
+            for body in spec.bodies
+            if body.name.endswith("_portrait")
+        }
+
+    assert portrait_positions(first_spec) == portrait_positions(second_spec)

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import random
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -29,8 +31,22 @@ _IMAGES_DIR = Path(__file__).resolve().parent / "images"
 _FORWARD_CAMERA_QUAT = (-0.5, -0.5, 0.5, 0.5)
 
 
+@dataclass(frozen=True)
+class _Portrait:
+    name: str
+    half_size: tuple[float, float] = (0.8, 1.1)
+
+
+_PORTRAITS = (
+    _Portrait("linus"),
+    _Portrait("karpathy", half_size=(0.85, 0.85)),
+    _Portrait("bugs"),
+)
+
+
 def make_portrait_corridors_spec_fn(
     *,
+    seed: int | None = None,
     start_x: float = -2.0,
     corridor_length: float = 8.0,
     corridor_width: float = 2.0,
@@ -39,7 +55,10 @@ def make_portrait_corridors_spec_fn(
     wall_thickness: float = 0.2,
     wall_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0),
 ) -> Callable[["MjSpec"], None]:
-    """Create three parallel, enclosed corridors with one portrait each."""
+    """Create three corridors with a randomly assigned portrait in each one."""
+
+    portraits = list(_PORTRAITS)
+    random.Random(seed).shuffle(portraits)
 
     def add_portrait_corridors(spec: MjSpec) -> None:
         end_x = start_x + corridor_length
@@ -101,14 +120,18 @@ def make_portrait_corridors_spec_fn(
             camera.fovy = 65.0
 
         portrait_x = end_x - half_wall_thickness - 0.01
-        _add_portrait(spec, name="linus", pos=(portrait_x, corridor_width, 1.25))
-        _add_portrait(
-            spec,
-            name="karpathy",
-            pos=(portrait_x, 0.0, 1.25),
-            half_size=(0.85, 0.85),
+        corridor_positions = (
+            (portrait_x, corridor_width, 1.25),
+            (portrait_x, 0.0, 1.25),
+            (portrait_x, -corridor_width, 1.25),
         )
-        _add_portrait(spec, name="bugs", pos=(portrait_x, -corridor_width, 1.25))
+        for portrait, pos in zip(portraits, corridor_positions, strict=True):
+            _add_portrait(
+                spec,
+                name=portrait.name,
+                pos=pos,
+                half_size=portrait.half_size,
+            )
 
     return add_portrait_corridors
 
