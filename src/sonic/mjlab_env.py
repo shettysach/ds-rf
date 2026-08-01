@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
+from mjlab.envs import ManagerBasedRlEnv
 from mjlab.utils.lab_api.math import euler_xyz_from_quat
+from mjlab.viewer.debug_visualizer import DebugVisualizer
 
 from sonic.mjlab_config import make_sonic_env_cfg
 
@@ -17,11 +20,30 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class RobotState:
+    root_pos_w: torch.Tensor
     root_quat_w: torch.Tensor
     root_ang_vel_b: torch.Tensor
     projected_gravity_b: torch.Tensor
     joint_pos: torch.Tensor
     joint_vel: torch.Tensor
+
+
+class SonicManagerBasedRlEnv(ManagerBasedRlEnv):
+    """MJLab environment with composable application debug visualizers."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        self._application_visualizers: list[Callable[[DebugVisualizer], None]] = []
+        super().__init__(*args, **kwargs)
+
+    def add_debug_visualizer(
+        self, callback: Callable[[DebugVisualizer], None]
+    ) -> None:
+        self._application_visualizers.append(callback)
+
+    def update_visualizers(self, visualizer: DebugVisualizer) -> None:
+        super().update_visualizers(visualizer)
+        for callback in self._application_visualizers:
+            callback(visualizer)
 
 
 class SonicMjlabEnv:
@@ -33,10 +55,8 @@ class SonicMjlabEnv:
         image_height: int = 480,
         task: str | None = None,
     ) -> None:
-        from mjlab.envs import ManagerBasedRlEnv
-
         torch_device = torch.device(device)
-        self._env = ManagerBasedRlEnv(
+        self._env = SonicManagerBasedRlEnv(
             cfg=make_sonic_env_cfg(
                 image_width=image_width,
                 image_height=image_height,
@@ -65,6 +85,7 @@ class SonicMjlabEnv:
     def robot_state(self) -> RobotState:
         data = self._env.scene["robot"].data
         return RobotState(
+            root_pos_w=data.root_link_pos_w[0],
             root_quat_w=data.root_link_quat_w[0],
             root_ang_vel_b=data.root_link_ang_vel_b[0],
             projected_gravity_b=data.projected_gravity_b[0],
@@ -83,6 +104,11 @@ class SonicMjlabEnv:
     def reset(self) -> tuple[VecEnvObs, dict[str, object]]:
         with self.compute_context():
             return self._env.reset()
+
+    def add_debug_visualizer(
+        self, callback: Callable[[DebugVisualizer], None]
+    ) -> None:
+        self._env.add_debug_visualizer(callback)
 
     def render(self) -> np.ndarray:
         with self.compute_context():

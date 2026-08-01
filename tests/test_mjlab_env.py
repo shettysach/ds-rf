@@ -4,7 +4,7 @@ from typing import Any, cast
 import pytest
 import torch
 
-from sonic.mjlab_env import SonicMjlabEnv, _yaw_degrees
+from sonic.mjlab_env import SonicManagerBasedRlEnv, SonicMjlabEnv, _yaw_degrees
 
 
 @pytest.mark.parametrize(
@@ -48,3 +48,19 @@ def test_camera_azimuth_tracks_body_yaw_without_accumulating() -> None:
     robot.data.body_link_quat_w[0, 0] = torch.tensor([1.0, 0.0, 0.0, 0.0])
     simulation._align_camera_with_robot()
     assert renderer._cam.azimuth == pytest.approx(10.0)
+
+
+def test_application_debug_visualizer_is_composed_with_mjlab_visualizers() -> None:
+    calls: list[object] = []
+    visualizer = object()
+    env = cast(Any, SonicManagerBasedRlEnv.__new__(SonicManagerBasedRlEnv))
+    env.manager_visualizers = {
+        "manager": SimpleNamespace(debug_vis=lambda value: calls.append(value))
+    }
+    env.scene = SimpleNamespace(sensors={})
+    env._application_visualizers = []
+    env.add_debug_visualizer(lambda value: calls.append(value))
+
+    env.update_visualizers(visualizer)
+
+    assert calls == [visualizer, visualizer]

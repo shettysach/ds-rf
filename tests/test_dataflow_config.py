@@ -27,4 +27,5 @@ def test_runtime_environment_is_scoped_to_consuming_nodes() -> None:
         "DSRF_IMAGE_HEIGHT": "${DSRF_IMAGE_HEIGHT:-480}",
         "DSRF_JPEG_QUALITY": "${DSRF_JPEG_QUALITY:-85}",
         "DSRF_VIEWER": "${DSRF_VIEWER:-native}",
+        "DSRF_REFERENCE_GHOST": "${DSRF_REFERENCE_GHOST:-false}",
     }

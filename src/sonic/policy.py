@@ -5,6 +5,7 @@ from pathlib import Path
 import torch
 from mjlab.utils.lab_api.math import (
     matrix_from_quat,
+    quat_apply,
     quat_conjugate,
     quat_mul,
     yaw_quat,
@@ -34,6 +35,8 @@ class MotionReference:
         self._heading_delta = torch.tensor(
             [1.0, 0.0, 0.0, 0.0], dtype=torch.float32, device=device
         )
+        self._robot_origin_w = torch.zeros(3, dtype=torch.float32, device=device)
+        self._reference_origin = torch.zeros(3, dtype=torch.float32, device=device)
         self._sonic_from_mjlab = torch.as_tensor(
             SONIC_FROM_MJLAB, dtype=torch.long, device=device
         )
@@ -43,7 +46,12 @@ class MotionReference:
         self._frame = 0
         self._active = False
 
-    def load(self, chunk: MotionChunk, robot_quat_w: torch.Tensor) -> None:
+    def load(
+        self,
+        chunk: MotionChunk,
+        robot_pos_w: torch.Tensor,
+        robot_quat_w: torch.Tensor,
+    ) -> None:
         self._qpos = torch.tensor(
             chunk.qpos, dtype=torch.float32, device=self.device
         ).contiguous()
@@ -59,8 +67,24 @@ class MotionReference:
         self._heading_delta = quat_mul(
             yaw_quat(robot_quat_w), quat_conjugate(yaw_quat(reference_quat))
         )
+        self._robot_origin_w = robot_pos_w.clone()
+        self._reference_origin = self._qpos[0, :3].clone()
         self._frame = 0
         self._active = True
+
+    def visualization_pose(
+        self,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None:
+        """Return the active reference pose aligned to the command start pose."""
+        if not self._active:
+            return None
+
+        qpos = self._qpos[self._frame]
+        root_pos_w = self._robot_origin_w + quat_apply(
+            self._heading_delta, qpos[:3] - self._reference_origin
+        )
+        root_quat_w = quat_mul(self._heading_delta, qpos[3:7])
+        return root_pos_w, root_quat_w, qpos[7:]
 
     def window(self, *, step: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         indices = torch.clamp(
@@ -133,8 +157,13 @@ class SonicPolicy:
         self.encoder.input.zero_()
         self.decoder.input.zero_()
 
-    def load_motion(self, chunk: MotionChunk, robot_quat_w: torch.Tensor) -> None:
-        self.reference.load(chunk, robot_quat_w)
+    def load_motion(
+        self,
+        chunk: MotionChunk,
+        robot_pos_w: torch.Tensor,
+        robot_quat_w: torch.Tensor,
+    ) -> None:
+        self.reference.load(chunk, robot_pos_w, robot_quat_w)
 
     def infer(self, state: RobotState) -> tuple[torch.Tensor, bool]:
         joint_position = (state.joint_pos - self._default_joint_pos).index_select(

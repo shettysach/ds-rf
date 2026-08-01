@@ -86,7 +86,7 @@ class SonicRuntime:
         with self.simulation.compute_context():
             state = self.simulation.robot_state()
             try:
-                self.policy.load_motion(chunk, state.root_quat_w)
+                self.policy.load_motion(chunk, state.root_pos_w, state.root_quat_w)
             except ValueError as exc:
                 self._report_error(str(exc))
                 return

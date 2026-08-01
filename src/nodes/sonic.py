@@ -7,6 +7,7 @@ from dora import Node
 from shared.config import SonicConfig
 from sonic.mjlab_env import SonicMjlabEnv
 from sonic.policy import SonicPolicy
+from sonic.reference_ghost import SonicReferenceGhost
 from sonic.renderer import SonicRenderer
 from sonic.runtime import SonicRuntime
 from sonic.viewer import NativeSonicViewer, SonicViewer
@@ -22,9 +23,7 @@ def main() -> None:
         image_width=cfg.image_width,
         image_height=cfg.image_height,
     )
-    viewer: Optional[SonicViewer] = (
-        NativeSonicViewer(simulation) if cfg.viewer == "native" else None
-    )
+    viewer: Optional[SonicViewer] = None
 
     try:
         with simulation.compute_context():
@@ -33,6 +32,11 @@ def main() -> None:
                 device=cfg.device,
                 cuda_stream=simulation.cuda_stream,
             )
+        if cfg.viewer == "native":
+            if cfg.reference_ghost:
+                ghost = SonicReferenceGhost(simulation.unwrapped, policy.reference)
+                simulation.add_debug_visualizer(ghost.draw)
+            viewer = NativeSonicViewer(simulation)
         renderer = SonicRenderer(simulation, jpeg_quality=cfg.jpeg_quality)
         _log_init(node, cfg)
         SonicRuntime(node, simulation, policy, renderer, viewer).run()
@@ -52,6 +56,7 @@ def _log_init(node: Node, cfg: SonicConfig) -> None:
             "task": cfg.task or "none",
             "device": cfg.device,
             "viewer": cfg.viewer,
+            "reference_ghost": str(cfg.reference_ghost).lower(),
         },
     )
 

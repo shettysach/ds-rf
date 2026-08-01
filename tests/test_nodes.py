@@ -126,7 +126,10 @@ class _Simulation:
         return nullcontext()
 
     def robot_state(self):
-        return SimpleNamespace(root_quat_w=torch.tensor([1.0, 0.0, 0.0, 0.0]))
+        return SimpleNamespace(
+            root_pos_w=torch.zeros(3),
+            root_quat_w=torch.tensor([1.0, 0.0, 0.0, 0.0]),
+        )
 
     def step(self, action) -> None:
         del action
@@ -138,8 +141,8 @@ class _Policy:
         self.calls = 0
         self.loaded: MotionChunk | None = None
 
-    def load_motion(self, chunk, root_quat_w) -> None:
-        del root_quat_w
+    def load_motion(self, chunk, root_pos_w, root_quat_w) -> None:
+        del root_pos_w, root_quat_w
         self.loaded = chunk
 
     def infer(self, state):

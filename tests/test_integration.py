@@ -26,6 +26,7 @@ def test_real_checkpoints_generate_action_and_motion() -> None:
     encoder_mode = policy.layout.encoder_slices["encoder_mode_4"]
     policy.encoder.input[0, encoder_mode].fill_(1.0)
     state = RobotState(
+        root_pos_w=torch.zeros(3),
         root_quat_w=torch.tensor([1.0, 0.0, 0.0, 0.0]),
         root_ang_vel_b=torch.zeros(3),
         projected_gravity_b=torch.tensor([0.0, 0.0, -1.0]),

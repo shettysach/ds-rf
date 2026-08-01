@@ -30,6 +30,7 @@ class SonicConfig:
     image_height: int
     jpeg_quality: int
     viewer: ViewerMode
+    reference_ghost: bool
 
     @classmethod
     def from_env(cls) -> "SonicConfig":
@@ -41,6 +42,7 @@ class SonicConfig:
             image_height=_positive_int("DSRF_IMAGE_HEIGHT"),
             jpeg_quality=_bounded_int("DSRF_JPEG_QUALITY", minimum=1, maximum=100),
             viewer=_viewer_mode(),
+            reference_ghost=_boolean("DSRF_REFERENCE_GHOST"),
         )
 
 
@@ -89,3 +91,10 @@ def _viewer_mode() -> ViewerMode:
     if value not in {"none", "native"}:
         raise ValueError("DSRF_VIEWER must be 'none' or 'native'")
     return value
+
+
+def _boolean(name: str) -> bool:
+    value = os.environ[name].strip().lower()
+    if value not in {"false", "true"}:
+        raise ValueError(f"{name} must be 'false' or 'true'")
+    return value == "true"

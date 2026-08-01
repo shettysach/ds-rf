@@ -44,3 +44,5 @@ dora run dataflow.yml
 ```
 
 - Set `DSRF_VIEWER=none` to disable the window for headless runs.
+- Set `DSRF_REFERENCE_GHOST=true` to show the active motion reference in the
+  native viewer.

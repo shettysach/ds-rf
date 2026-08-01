@@ -23,6 +23,7 @@ def test_sonic_config_from_env(monkeypatch) -> None:
     monkeypatch.setenv("DSRF_IMAGE_HEIGHT", "480")
     monkeypatch.setenv("DSRF_JPEG_QUALITY", "85")
     monkeypatch.setenv("DSRF_VIEWER", "native")
+    monkeypatch.setenv("DSRF_REFERENCE_GHOST", "true")
 
     assert SonicConfig.from_env() == SonicConfig(
         sonic_dir=Path("/models/sonic"),
@@ -32,6 +33,7 @@ def test_sonic_config_from_env(monkeypatch) -> None:
         image_height=480,
         jpeg_quality=85,
         viewer="native",
+        reference_ghost=True,
     )
 
 
@@ -43,8 +45,23 @@ def test_sonic_config_rejects_unknown_viewer(monkeypatch) -> None:
     monkeypatch.setenv("DSRF_IMAGE_HEIGHT", "480")
     monkeypatch.setenv("DSRF_JPEG_QUALITY", "85")
     monkeypatch.setenv("DSRF_VIEWER", "viser")
+    monkeypatch.setenv("DSRF_REFERENCE_GHOST", "false")
 
     with pytest.raises(ValueError, match="DSRF_VIEWER"):
+        SonicConfig.from_env()
+
+
+def test_sonic_config_rejects_invalid_reference_ghost(monkeypatch) -> None:
+    monkeypatch.setenv("DSRF_DEVICE", "cpu")
+    monkeypatch.setenv("DSRF_SONIC_DIR", "/models/sonic")
+    monkeypatch.setenv("DSRF_TASK", "none")
+    monkeypatch.setenv("DSRF_IMAGE_WIDTH", "640")
+    monkeypatch.setenv("DSRF_IMAGE_HEIGHT", "480")
+    monkeypatch.setenv("DSRF_JPEG_QUALITY", "85")
+    monkeypatch.setenv("DSRF_VIEWER", "native")
+    monkeypatch.setenv("DSRF_REFERENCE_GHOST", "yes")
+
+    with pytest.raises(ValueError, match="DSRF_REFERENCE_GHOST"):
         SonicConfig.from_env()
 
 
