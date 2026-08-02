@@ -21,11 +21,13 @@ cpu = [
     "mjlab",
     "onnxruntime>=1.23.0,<1.27.0",
     "torch>=2.7.0",
+    "torchvision",
 ]
 cu128 = [
     "mjlab",
     "onnxruntime-gpu>=1.23.0,<1.27.0",
     "torch>=2.7.0",
+    "torchvision",
 ]
 
 [project.scripts]
@@ -49,6 +51,10 @@ conflicts = [
 mjlab = { git = "https://github.com/mujocolab/mjlab", rev = "15ebce8840ee2205f4c62d0c20df65dd1794cab4" }
 warp-lang = { index = "nvidia", marker = "sys_platform != 'darwin'" }
 torch = [
+    { index = "pytorch-cpu", extra = "cpu", marker = "sys_platform != 'darwin'" },
+    { index = "pytorch-cu128", extra = "cu128", marker = "sys_platform != 'darwin'" },
+]
+torchvision = [
     { index = "pytorch-cpu", extra = "cpu", marker = "sys_platform != 'darwin'" },
     { index = "pytorch-cu128", extra = "cu128", marker = "sys_platform != 'darwin'" },
 ]
