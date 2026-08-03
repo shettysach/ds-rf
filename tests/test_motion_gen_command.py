@@ -1,53 +1,59 @@
-import math
+from types import SimpleNamespace
+from typing import Any, cast
 
+import numpy as np
 import pytest
 
-from motion_gen.planner_sonic import PlannerMode, parse_motion_command
+from motion_gen.planner_sonic import PlannerMode, PlannerSonic, planner_mode
 
 
-def test_locomotion_direction() -> None:
-    command = parse_motion_command('{"motion":"walk","direction":"forward-right"}')
+def test_navigation_modes_are_intentionally_small() -> None:
+    assert planner_mode("stand") is PlannerMode.IDLE
+    assert planner_mode("walk") is PlannerMode.WALK
+    with pytest.raises(ValueError, match="Unsupported motion"):
+        planner_mode("run")
 
-    assert command.mode is PlannerMode.WALK
-    assert command.movement_direction == pytest.approx(
-        (1.0 / math.sqrt(2.0), -1.0 / math.sqrt(2.0), 0.0)
+
+def test_local_lateral_target_uses_world_target_and_preserves_heading() -> None:
+    captured: dict[str, np.ndarray] = {}
+
+    def run(_outputs, inputs):
+        captured.update(inputs)
+        qpos = np.tile(_standing(), (1, 8, 1))
+        return qpos, np.array([8], dtype=np.int64)
+
+    planner = PlannerSonic.__new__(PlannerSonic)
+    planner.session = cast(Any, SimpleNamespace(run=run))
+    planner._context = np.tile(_standing(), (1, 4, 1))
+    planner.generate("walk", (1.0, 0.5))
+
+    np.testing.assert_allclose(
+        captured["specific_target_positions"][0, :, :2],
+        np.array([[1.0, 0.5]] * 4),
     )
-    assert command.facing_direction == (1.0, 0.0, 0.0)
-    assert command.target_vel == -1.0
+    np.testing.assert_allclose(captured["specific_target_headings"], 0.0)
+    np.testing.assert_allclose(captured["facing_direction"], [[1.0, 0.0, 0.0]])
+    assert captured["has_specific_target"].tolist() == [[1]]
 
 
-def test_stationary_motion_ignores_direction() -> None:
-    command = parse_motion_command('{"motion":"stand","direction":"left"}')
+def test_stand_has_no_specific_target() -> None:
+    captured: dict[str, np.ndarray] = {}
 
-    assert command.mode is PlannerMode.IDLE
-    assert command.movement_direction == (0.0, 0.0, 0.0)
+    def run(_outputs, inputs):
+        captured.update(inputs)
+        qpos = np.tile(_standing(), (1, 8, 1))
+        return qpos, np.array([8], dtype=np.int64)
 
+    planner = PlannerSonic.__new__(PlannerSonic)
+    planner.session = cast(Any, SimpleNamespace(run=run))
+    planner._context = np.tile(_standing(), (1, 4, 1))
+    planner.generate("stand", None)
 
-@pytest.mark.parametrize(
-    ("text", "mode"),
-    [
-        ('{"motion":"stand","direction":"forward"}', 0),
-        ('{"motion":"slowwalk","direction":"forward"}', 1),
-        ('{"motion":"crawl","direction":"forward"}', 8),
-        ('{"motion":"happy-dance","direction":"forward"}', 23),
-    ],
-)
-def test_modes_and_aliases(text: str, mode: int) -> None:
-    assert parse_motion_command(text).mode == mode
+    assert captured["has_specific_target"].tolist() == [[0]]
+    np.testing.assert_allclose(captured["movement_direction"], 0.0)
 
 
-@pytest.mark.parametrize(
-    "text",
-    [
-        "walk left",
-        "[]",
-        '{"motion":"walk"}',
-        '{"motion":"walk","direction":"left","speed":1}',
-        '{"motion":1,"direction":"left"}',
-        '{"motion":"sit","direction":"left"}',
-        '{"motion":"walk","direction":"up"}',
-    ],
-)
-def test_invalid_commands(text: str) -> None:
-    with pytest.raises(ValueError):
-        parse_motion_command(text)
+def _standing() -> np.ndarray:
+    qpos = np.zeros(36, dtype=np.float32)
+    qpos[3] = 1.0
+    return qpos

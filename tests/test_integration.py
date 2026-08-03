@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import onnxruntime as ort
 import pytest
 import torch
@@ -39,12 +40,12 @@ def test_real_checkpoints_generate_action_and_motion() -> None:
     assert not completed
 
     planner = PlannerSonic(SONIC_DIR / "planner_sonic.onnx")
-    planner_qpos = planner.generate('{"motion":"walk","direction":"forward"}')
+    planner_qpos = planner.generate("walk", (1.0, 0.0))
     chunk = resample_motion(
         planner_qpos,
         source_fps=planner.fps,
         observation_id=0,
-        command='{"motion":"walk","direction":"forward"}',
+        command='{"motion":"walk","waypoint_2d":[500,500]}',
     )
     assert 24 <= planner_qpos.shape[0] <= 64
     assert planner_qpos.shape[0] % 4 == 0
@@ -65,16 +66,19 @@ def test_mjlab_cpu_control_step() -> None:
 
 
 @pytest.mark.skipif(not SONIC_DIR.is_dir(), reason="SONIC bundle is unavailable")
-def test_mjlab_offscreen_capture_is_jpeg() -> None:
+def test_mjlab_offscreen_capture_is_synchronized_rgbd() -> None:
     simulation = SonicMjlabEnv(
         device="cpu",
         image_width=160,
         image_height=120,
     )
     try:
-        jpeg = SonicRenderer(simulation, jpeg_quality=80).capture_jpeg()
+        jpeg, projection = SonicRenderer(simulation, jpeg_quality=80).capture_rgbd()
         assert jpeg.startswith(b"\xff\xd8")
         assert jpeg.endswith(b"\xff\xd9")
+        assert projection.depth.shape == (120, 160)
+        assert bool(np.isfinite(projection.depth).all())
+        assert projection.frustum_height > 0.0
     finally:
         simulation.close()
 

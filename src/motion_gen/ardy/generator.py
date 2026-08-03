@@ -8,10 +8,9 @@ from ardy.exports.mujoco import MujocoQposConverter
 from ardy.model import load_model
 from ardy.motion_rep.tools import length_to_mask
 
-from motion_gen.ardy.constraints import build_velocity_constraints
+from motion_gen.ardy.constraints import build_waypoint_constraints
 from motion_gen.ardy.encoder import prepare_conditioning
 from motion_gen.ardy.history import build_initial_history, qpos_to_ardy_inputs
-from motion_gen.ardy.parser import Vector2
 from shared.g1 import standing_qpos
 
 
@@ -56,7 +55,7 @@ class Ardy:
     def generate(
         self,
         embedding: np.ndarray,
-        target_velocity: Vector2,
+        target_xy: tuple[float, float] | None,
     ) -> np.ndarray:
         text_feat, text_pad_mask = prepare_conditioning(
             embedding,
@@ -65,13 +64,12 @@ class Ardy:
         generated_frames = self.fps * self.duration_s
         num_frames = generated_frames + self.history_frames
         lengths = torch.tensor([num_frames], device=self.device)
-        motion_mask, observed_motion = build_velocity_constraints(
+        motion_mask, observed_motion = build_waypoint_constraints(
             self.model.motion_rep,
             self.root_history,
-            target_velocity,
+            target_xy,
             generated_frames=generated_frames,
             history_frames=self.history_frames,
-            fps=self.fps,
             device=self.device,
         )
 

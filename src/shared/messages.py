@@ -13,6 +13,43 @@ ARDY_EMBEDDING_SIZE = 4096
 
 
 @dataclass(frozen=True)
+class ProjectionContext:
+    depth: np.ndarray
+    camera_pos_w: np.ndarray
+    camera_forward_w: np.ndarray
+    camera_up_w: np.ndarray
+    frustum_height: float
+    root_pos_w: np.ndarray
+    root_quat_w: np.ndarray
+    near: float
+    far: float
+
+    def __post_init__(self) -> None:
+        depth = np.asarray(self.depth, dtype=np.float32)
+        if depth.ndim != 2 or not depth.size:
+            raise ValueError(f"Depth must have shape [H, W], got {depth.shape}")
+        vectors = {
+            "camera_pos_w": (self.camera_pos_w, (3,)),
+            "camera_forward_w": (self.camera_forward_w, (3,)),
+            "camera_up_w": (self.camera_up_w, (3,)),
+            "root_pos_w": (self.root_pos_w, (3,)),
+            "root_quat_w": (self.root_quat_w, (4,)),
+        }
+        for name, (value, shape) in vectors.items():
+            array = np.asarray(value, dtype=np.float32)
+            if array.shape != shape or not np.isfinite(array).all():
+                raise ValueError(f"{name} must be finite with shape {shape}")
+            object.__setattr__(self, name, np.ascontiguousarray(array))
+        if not np.isfinite(self.frustum_height) or self.frustum_height <= 0.0:
+            raise ValueError("Camera frustum height must be positive and finite")
+        if not np.isfinite(self.near) or not np.isfinite(self.far):
+            raise ValueError("Camera clipping distances must be finite")
+        if self.near <= 0.0 or self.far <= self.near:
+            raise ValueError("Camera clipping distances are invalid")
+        object.__setattr__(self, "depth", np.ascontiguousarray(depth))
+
+
+@dataclass(frozen=True)
 class MotionChunk:
     observation_id: int
     command: str
@@ -39,6 +76,8 @@ class MotionChunk:
 class AgentCommand:
     observation_id: int
     text: str
+    motion: str
+    target_xy: tuple[float, float] | None
 
     def __post_init__(self) -> None:
         if self.observation_id < 0:
@@ -46,6 +85,7 @@ class AgentCommand:
         normalized = self.text.strip()
         if not normalized:
             raise ValueError("Command is empty")
+        _validate_navigation(self.motion, self.target_xy)
         object.__setattr__(self, "text", normalized)
 
 
@@ -53,6 +93,8 @@ class AgentCommand:
 class EncodedCommand:
     observation_id: int
     text: str
+    motion: str
+    target_xy: tuple[float, float] | None
     embedding: np.ndarray
 
     def __post_init__(self) -> None:
@@ -61,6 +103,7 @@ class EncodedCommand:
         normalized = self.text.strip()
         if not normalized:
             raise ValueError("Command is empty")
+        _validate_navigation(self.motion, self.target_xy)
         embedding = np.asarray(self.embedding, dtype=np.float32)
         if embedding.shape != (ARDY_EMBEDDING_SIZE,):
             raise ValueError(
@@ -78,6 +121,7 @@ class VisualObservation:
     observation_id: int
     completed_command: str | None
     jpeg: bytes
+    projection: ProjectionContext | None = None
 
     def __post_init__(self) -> None:
         if self.observation_id < 0:
@@ -125,15 +169,21 @@ def motion_from_arrow(value: pa.Array, metadata: dict[str, Any]) -> MotionChunk:
 def agent_command_to_arrow(
     command: AgentCommand,
 ) -> tuple[pa.Array, dict[str, str]]:
-    return pa.array([command.text], type=pa.string()), {
-        "observation_id": str(command.observation_id)
+    metadata = {
+        "observation_id": str(command.observation_id),
+        "motion": command.motion,
     }
+    if command.target_xy is not None:
+        metadata["target_xy"] = json.dumps(command.target_xy, separators=(",", ":"))
+    return pa.array([command.text], type=pa.string()), metadata
 
 
 def agent_command_from_arrow(value: pa.Array, metadata: dict[str, Any]) -> AgentCommand:
     return AgentCommand(
         observation_id=_observation_id(metadata),
         text=_string_from_arrow(value),
+        motion=str(metadata["motion"]),
+        target_xy=_target_xy(metadata),
     )
 
 
@@ -143,6 +193,12 @@ def encoded_command_to_arrow(
     return pa.array(command.embedding, type=pa.float32()), {
         "observation_id": str(command.observation_id),
         "text": command.text,
+        "motion": command.motion,
+        **(
+            {"target_xy": json.dumps(command.target_xy, separators=(",", ":"))}
+            if command.target_xy is not None
+            else {}
+        ),
     }
 
 
@@ -152,6 +208,8 @@ def encoded_command_from_arrow(
     return EncodedCommand(
         observation_id=_observation_id(metadata),
         text=str(metadata["text"]),
+        motion=str(metadata["motion"]),
+        target_xy=_target_xy(metadata),
         embedding=np.asarray(value.to_numpy(zero_copy_only=False), dtype=np.float32),
     )
 
@@ -165,7 +223,29 @@ def observation_to_arrow(
     }
     if observation.completed_command is not None:
         metadata["completed_command"] = observation.completed_command
-    return pa.array([observation.jpeg], type=pa.binary()), metadata
+    depth: bytes | None = None
+    if observation.projection is not None:
+        projection = observation.projection
+        depth = projection.depth.tobytes()
+        metadata["projection"] = json.dumps(
+            {
+                "shape": projection.depth.shape,
+                "camera_pos_w": projection.camera_pos_w.tolist(),
+                "camera_forward_w": projection.camera_forward_w.tolist(),
+                "camera_up_w": projection.camera_up_w.tolist(),
+                "frustum_height": projection.frustum_height,
+                "root_pos_w": projection.root_pos_w.tolist(),
+                "root_quat_w": projection.root_quat_w.tolist(),
+                "near": projection.near,
+                "far": projection.far,
+            },
+            separators=(",", ":"),
+        )
+    value = pa.array(
+        [{"jpeg": observation.jpeg, "depth": depth}],
+        type=pa.struct([("jpeg", pa.binary()), ("depth", pa.binary())]),
+    )
+    return value, metadata
 
 
 def observation_from_arrow(
@@ -174,6 +254,31 @@ def observation_from_arrow(
     mime_type = metadata.get("mime_type")
     if mime_type != "image/jpeg":
         raise ValueError(f"Unsupported observation MIME type: {mime_type!r}")
+    rows = value.to_pylist()
+    if len(rows) != 1 or not isinstance(rows[0], dict):
+        raise ValueError("Expected one observation struct")
+    jpeg = rows[0].get("jpeg")
+    depth_bytes = rows[0].get("depth")
+    if not isinstance(jpeg, bytes):
+        raise ValueError("Observation JPEG is invalid")
+    projection = None
+    if "projection" in metadata:
+        if not isinstance(depth_bytes, bytes):
+            raise ValueError("Observation depth is invalid")
+        document = json.loads(str(metadata["projection"]))
+        shape = tuple(int(size) for size in document["shape"])
+        depth = np.frombuffer(depth_bytes, dtype=np.float32).copy().reshape(shape)
+        projection = ProjectionContext(
+            depth=depth,
+            camera_pos_w=document["camera_pos_w"],
+            camera_forward_w=document["camera_forward_w"],
+            camera_up_w=document["camera_up_w"],
+            frustum_height=float(document["frustum_height"]),
+            root_pos_w=document["root_pos_w"],
+            root_quat_w=document["root_quat_w"],
+            near=float(document["near"]),
+            far=float(document["far"]),
+        )
     return VisualObservation(
         observation_id=_observation_id(metadata),
         completed_command=(
@@ -181,7 +286,8 @@ def observation_from_arrow(
             if "completed_command" in metadata
             else None
         ),
-        jpeg=_binary_from_arrow(value),
+        jpeg=jpeg,
+        projection=projection,
     )
 
 
@@ -228,3 +334,27 @@ def _observation_id(metadata: dict[str, Any]) -> int:
     if observation_id < 0:
         raise ValueError("Observation ID must be non-negative")
     return observation_id
+
+
+def _target_xy(metadata: dict[str, Any]) -> tuple[float, float] | None:
+    if "target_xy" not in metadata:
+        return None
+    value = json.loads(str(metadata["target_xy"]))
+    if not isinstance(value, list) or len(value) != 2:
+        raise ValueError("target_xy metadata must contain two values")
+    return (float(value[0]), float(value[1]))
+
+
+def _validate_navigation(
+    motion: str, target_xy: tuple[float, float] | None
+) -> None:
+    if motion not in {"stand", "walk"}:
+        raise ValueError("Motion must be stand or walk")
+    if motion == "stand":
+        if target_xy is not None:
+            raise ValueError("Stand command must not have target_xy")
+        return
+    if target_xy is None or len(target_xy) != 2:
+        raise ValueError("Walk command requires target_xy")
+    if not all(np.isfinite(value) for value in target_xy):
+        raise ValueError("target_xy must be finite")

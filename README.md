@@ -49,9 +49,9 @@ dora run demo.yml
 
 ## ARDY closed loop
 
-The ARDY graph parses each JSON command, encodes its `motion` field with a local
-Transformers model, and converts its `direction` into target-velocity root
-constraints. It generates a five-second reference and carries ARDY's generated
+The ARDY graph encodes each command's `motion` field with a local Transformers
+model and converts the resolved local waypoint into a root-position constraint.
+It generates a five-second reference and carries ARDY's generated
 history into the next request:
 
 ```bash

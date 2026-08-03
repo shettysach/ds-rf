@@ -4,10 +4,12 @@ from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import mujoco
 import numpy as np
 import torch
 from mjlab.envs import ManagerBasedRlEnv
 
+from shared.messages import ProjectionContext
 from sonic.mjlab_config import make_sonic_env_cfg
 
 if TYPE_CHECKING:
@@ -90,6 +92,54 @@ class SonicMjlabEnv:
         if image is None:
             raise RuntimeError("MJLab offscreen renderer returned no image")
         return image
+
+    def render_rgbd(self) -> tuple[np.ndarray, ProjectionContext]:
+        with self.compute_context():
+            offline = self._env._offline_renderer
+            if offline is None:
+                raise RuntimeError("MJLab offscreen renderer is not initialized")
+            debug_callback = (
+                self._env.update_visualizers
+                if hasattr(self._env, "update_visualizers")
+                else None
+            )
+            offline.update(self._env.sim.data, debug_vis_callback=debug_callback)
+            renderer = offline.renderer
+            rgb = renderer.render().copy()
+            renderer.enable_depth_rendering()
+            try:
+                depth = renderer.render().copy()
+            finally:
+                renderer.disable_depth_rendering()
+
+            camera_pos = np.empty(3, dtype=np.float64)
+            camera_forward = np.empty(3, dtype=np.float64)
+            camera_up = np.empty(3, dtype=np.float64)
+            mujoco.mjv_cameraInModel(  # ty: ignore[unresolved-attribute]
+                camera_pos,
+                camera_forward,
+                camera_up,
+                renderer.scene,
+            )
+            model = renderer.model
+            extent = float(model.stat.extent)
+            state = self.robot_state()
+            projection = ProjectionContext(
+                depth=depth,
+                camera_pos_w=camera_pos,
+                camera_forward_w=camera_forward,
+                camera_up_w=camera_up,
+                frustum_height=float(
+                    mujoco.mjv_frustumHeight(  # ty: ignore[unresolved-attribute]
+                        renderer.scene
+                    )
+                ),
+                root_pos_w=state.root_pos_w.detach().cpu().numpy(),
+                root_quat_w=state.root_quat_w.detach().cpu().numpy(),
+                near=float(model.vis.map.znear) * extent,
+                far=float(model.vis.map.zfar) * extent,
+            )
+        return rgb, projection
 
     def close(self) -> None:
         self._env.close()

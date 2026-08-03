@@ -85,6 +85,7 @@ class AgentConfig:
     vlm_timeout: float
     system_prompt: Path
     user_prompt: Path
+    waypoint_debug: bool
 
     @classmethod
     def from_env(cls) -> "AgentConfig":
@@ -99,6 +100,7 @@ class AgentConfig:
             vlm_timeout=timeout,
             system_prompt=Path(os.environ["DSRF_VLM_SYSTEM_PROMPT"]),
             user_prompt=Path(os.environ["DSRF_VLM_USER_PROMPT"]),
+            waypoint_debug=_optional_boolean("DSRF_WAYPOINT_DEBUG", default=False),
         )
 
 
@@ -138,3 +140,9 @@ def _boolean(name: str) -> bool:
     if value not in {"false", "true"}:
         raise ValueError(f"{name} must be 'false' or 'true'")
     return value == "true"
+
+
+def _optional_boolean(name: str, *, default: bool) -> bool:
+    if name not in os.environ:
+        return default
+    return _boolean(name)

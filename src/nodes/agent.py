@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import time
+from io import BytesIO
+from pathlib import Path
 
+import imageio.v3 as iio
 from dora import Node
 
 from agent.vlm import LlamaServerClient
+from agent.waypoint import ResolvedWaypoint, parse_waypoint_command, resolve_waypoint
 from shared.config import AgentConfig
 from shared.messages import (
     AgentCommand,
@@ -16,16 +20,19 @@ from shared.messages import (
 )
 
 MAX_INVALID_RESPONSES = 3
-FALLBACK_COMMAND = '{"motion":"stand","direction":"forward"}'
+FALLBACK_COMMAND = '{"motion":"stand","waypoint_2d":null}'
 
 
 class AgentLoop:
-    def __init__(self, node: Node, client: LlamaServerClient) -> None:
+    def __init__(
+        self, node: Node, client: LlamaServerClient, *, waypoint_debug: bool = False
+    ) -> None:
         self.node = node
         self.client = client
         self.observation: VisualObservation | None = None
         self.pending_command: str | None = None
         self.invalid_responses = 0
+        self.waypoint_debug = waypoint_debug
 
     def run(self) -> None:
         for event in self.node:
@@ -91,37 +98,42 @@ class AgentLoop:
             )
             raise RuntimeError(f"{error.source}: {error.detail}")
 
-        self.invalid_responses += 1
         previous = self.pending_command or ""
+        self._retry_invalid(previous, error.detail)
+
+    def _retry_invalid(self, previous: str, detail: str) -> None:
+        assert self.observation is not None
+        self.invalid_responses += 1
+        observation_id = self.observation.observation_id
         self.node.log(
             "warn",
-            f"[OBS {error.observation_id}] invalid command: "
-            f"{previous!r} error={error.detail!r}",
+            f"[OBS {observation_id}] invalid command: "
+            f"{previous!r} error={detail!r}",
             target="dsrf.agent",
             fields={
                 "event": "invalid_command",
-                "observation_id": str(error.observation_id),
+                "observation_id": str(observation_id),
                 "command": previous,
-                "detail": error.detail,
+                "detail": detail,
                 "attempt": str(self.invalid_responses),
             },
         )
         if self.invalid_responses >= MAX_INVALID_RESPONSES:
             self.node.log(
                 "warn",
-                f"[OBS {error.observation_id}] fallback command: "
+                f"[OBS {observation_id}] fallback command: "
                 f"{FALLBACK_COMMAND!r} after {self.invalid_responses} invalid responses",
                 target="dsrf.agent",
                 fields={
                     "event": "fallback_command",
-                    "observation_id": str(error.observation_id),
+                    "observation_id": str(observation_id),
                     "command": FALLBACK_COMMAND,
                     "invalid_responses": str(self.invalid_responses),
                 },
             )
-            self._send(FALLBACK_COMMAND)
+            self._send(FALLBACK_COMMAND, motion="stand", target_xy=None)
             return
-        feedback = f"Your previous response {previous!r} was invalid: {error.detail}"
+        feedback = f"Your previous response {previous!r} was invalid: {detail}"
         self._query_and_send(retry_feedback=feedback)
 
     def _query_and_send(self, *, retry_feedback: str | None = None) -> None:
@@ -177,14 +189,73 @@ class AgentLoop:
                 "jpeg_kb": f"{len(self.observation.jpeg) / 1024.0:.1f}",
             },
         )
-        self._send(command)
+        try:
+            parsed = parse_waypoint_command(command)
+            if parsed.motion == "stand":
+                self._send(command, motion="stand", target_xy=None)
+                return
+            if self.observation.projection is None:
+                raise ValueError("Observation has no depth projection context")
+            assert parsed.waypoint_2d is not None
+            resolved = resolve_waypoint(
+                parsed.waypoint_2d,
+                self.observation.projection,
+            )
+        except ValueError as exc:
+            self._retry_invalid(command, str(exc))
+            return
 
-    def _send(self, command_text: str) -> None:
+        if self.waypoint_debug:
+            self._log_waypoint(resolved)
+            _write_debug_image(self.observation.jpeg, observation_id, resolved.pixel)
+        self._send(command, motion="walk", target_xy=resolved.target_xy)
+
+    def _send(
+        self,
+        command_text: str,
+        *,
+        motion: str,
+        target_xy: tuple[float, float] | None,
+    ) -> None:
         assert self.observation is not None
-        command = AgentCommand(self.observation.observation_id, command_text)
+        command = AgentCommand(
+            self.observation.observation_id,
+            command_text,
+            motion,
+            target_xy,
+        )
         data, metadata = agent_command_to_arrow(command)
         self.node.send_output("command", data, metadata=metadata)
         self.pending_command = command.text
+
+    def _log_waypoint(self, waypoint: ResolvedWaypoint) -> None:
+        assert self.observation is not None
+        world = ",".join(f"{value:.3f}" for value in waypoint.world_point)
+        local = ",".join(f"{value:.3f}" for value in waypoint.target_xy)
+        self.node.log(
+            "info",
+            f"VLM waypoint: normalized={waypoint.normalized} pixel={waypoint.pixel}\n"
+            f"depth={waypoint.depth:.3f} meters\n"
+            f"world_point=({world})\n"
+            f"local_target=({local})",
+            target="dsrf.agent.waypoint",
+            fields={
+                "event": "waypoint_resolved",
+                "observation_id": str(self.observation.observation_id),
+            },
+        )
+
+
+def _write_debug_image(
+    jpeg: bytes, observation_id: int, pixel: tuple[int, int]
+) -> None:
+    image = iio.imread(BytesIO(jpeg), extension=".jpg")
+    u, v = pixel
+    image[max(0, v - 5) : v + 6, u] = (255, 0, 0)
+    image[v, max(0, u - 5) : u + 6] = (255, 0, 0)
+    output_dir = Path("/tmp/dsrf-waypoint-debug")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    iio.imwrite(output_dir / f"observation-{observation_id}.jpg", image)
 
 
 def main() -> None:
@@ -196,7 +267,7 @@ def main() -> None:
         system_prompt=cfg.system_prompt.read_text(encoding="utf-8"),
         user_prompt=cfg.user_prompt.read_text(encoding="utf-8"),
     )
-    AgentLoop(node, client).run()
+    AgentLoop(node, client, waypoint_debug=cfg.waypoint_debug).run()
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ from shared.messages import (
     AgentCommand,
     EncodedCommand,
     MotionChunk,
+    ProjectionContext,
     agent_command_to_arrow,
     encoded_command_to_arrow,
     motion_from_arrow,
@@ -40,8 +41,15 @@ class _Node:
         self.logs.append((level, message, kwargs))
 
 
-def _command_event(observation_id: int, text: str) -> dict[str, object]:
-    value, metadata = agent_command_to_arrow(AgentCommand(observation_id, text))
+def _command_event(
+    observation_id: int,
+    text: str,
+    motion: str = "walk",
+    target_xy: tuple[float, float] | None = (1.0, 0.0),
+) -> dict[str, object]:
+    value, metadata = agent_command_to_arrow(
+        AgentCommand(observation_id, text, motion, target_xy)
+    )
     return {
         "type": "INPUT",
         "id": "command",
@@ -52,7 +60,13 @@ def _command_event(observation_id: int, text: str) -> dict[str, object]:
 
 def _encoded_command_event(observation_id: int, text: str) -> dict[str, object]:
     value, metadata = encoded_command_to_arrow(
-        EncodedCommand(observation_id, text, np.ones(4096, dtype=np.float32))
+        EncodedCommand(
+            observation_id,
+            text,
+            "walk",
+            (0.2, -0.7),
+            np.ones(4096, dtype=np.float32),
+        )
     )
     return {
         "type": "INPUT",
@@ -85,31 +99,31 @@ def _planner_motion() -> np.ndarray:
 
 
 def test_motion_gen_generates_one_segment_per_command(monkeypatch) -> None:
-    generated: list[str] = []
+    generated: list[tuple[str, tuple[float, float] | None]] = []
 
-    def generate(text):
-        generated.append(text)
+    def generate(motion, target_xy):
+        generated.append((motion, target_xy))
         return _planner_motion()
 
     node = _run_motion_gen(
         monkeypatch,
-        [_command_event(4, '{"motion":"walk","direction":"forward"}')],
+        [_command_event(4, '{"motion":"walk","waypoint_2d":[500,500]}')],
         generate,
     )
 
     motions = [output for output in node.outputs if output[0] == "motion"]
-    assert generated == ['{"motion":"walk","direction":"forward"}']
+    assert generated == [("walk", (1.0, 0.0))]
     assert len(motions) == 1
     _, value, kwargs = motions[0]
     chunk = motion_from_arrow(value, kwargs["metadata"])
     assert chunk.observation_id == 4
-    assert chunk.command == '{"motion":"walk","direction":"forward"}'
+    assert chunk.command == '{"motion":"walk","waypoint_2d":[500,500]}'
     assert any("motion generated" in message for _, message, _ in node.logs)
 
 
 def test_motion_gen_reports_invalid_raw_vlm_response(monkeypatch) -> None:
-    def generate(text):
-        del text
+    def generate(motion, target_xy):
+        del motion, target_xy
         raise ValueError("Command must be a JSON object")
 
     node = _run_motion_gen(
@@ -127,13 +141,14 @@ def test_motion_gen_reports_invalid_raw_vlm_response(monkeypatch) -> None:
 
 
 def test_motion_gen_does_not_swallow_planner_errors(monkeypatch) -> None:
-    def generate(command):
+    def generate(motion, target_xy):
+        del motion, target_xy
         raise KeyError("unexpected")
 
     with pytest.raises(KeyError, match="unexpected"):
         _run_motion_gen(
             monkeypatch,
-            [_command_event(0, '{"motion":"walk","direction":"forward"}')],
+            [_command_event(0, '{"motion":"walk","waypoint_2d":[500,500]}')],
             generate,
         )
 
@@ -141,12 +156,12 @@ def test_motion_gen_does_not_swallow_planner_errors(monkeypatch) -> None:
 def test_ardy_motion_gen_consumes_encoded_commands(monkeypatch) -> None:
     from shared.config import ArdyConfig
 
-    command_text = '{"motion":"walk","direction":"right"}'
+    command_text = '{"motion":"walk","waypoint_2d":[700,500]}'
     node = _Node([_encoded_command_event(7, command_text)])
     generated: list[tuple[np.ndarray, tuple[float, float]]] = []
     generator = SimpleNamespace(
         fps=25,
-        generate=lambda embedding, velocity: generated.append((embedding, velocity))
+        generate=lambda embedding, target: generated.append((embedding, target))
         or _planner_motion(),
     )
     config = motion_gen_node.MotionGenConfig(
@@ -161,7 +176,7 @@ def test_ardy_motion_gen_consumes_encoded_commands(monkeypatch) -> None:
 
     assert len(generated) == 1
     assert generated[0][0].shape == (4096,)
-    assert generated[0][1] == (-0.5, 0.0)
+    assert generated[0][1] == (0.2, -0.7)
     chunk = motion_from_arrow(
         node.outputs[0][1], cast(Any, node.outputs[0][2]["metadata"])
     )
@@ -209,9 +224,23 @@ class _Renderer:
         self.simulation = simulation
         self.capture_steps: list[int] = []
 
-    def capture_jpeg(self) -> bytes:
+    def capture_rgbd(self) -> tuple[bytes, ProjectionContext]:
         self.capture_steps.append(self.simulation.steps)
-        return f"jpeg-{self.simulation.steps}".encode()
+        return f"jpeg-{self.simulation.steps}".encode(), _projection()
+
+
+def _projection() -> ProjectionContext:
+    return ProjectionContext(
+        depth=np.ones((2, 2), dtype=np.float32),
+        camera_pos_w=np.zeros(3),
+        camera_forward_w=np.array([1.0, 0.0, 0.0]),
+        camera_up_w=np.array([0.0, 0.0, 1.0]),
+        frustum_height=1.0,
+        root_pos_w=np.zeros(3),
+        root_quat_w=np.array([1.0, 0.0, 0.0, 0.0]),
+        near=0.01,
+        far=100.0,
+    )
 
 
 class _Viewer:

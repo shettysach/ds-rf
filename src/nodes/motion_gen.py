@@ -55,21 +55,16 @@ def main() -> None:
         started_at = time.perf_counter()
         try:
             try:
-                generation_input = (
-                    request.embedding
-                    if isinstance(request, EncodedCommand)
-                    else request.text
-                )
                 if isinstance(request, EncodedCommand):
-                    from motion_gen.ardy.parser import parse_motion_command
-
-                    command = parse_motion_command(request.text)
                     source_qpos = generator.generate(
-                        generation_input,
-                        command.target_velocity,
+                        request.embedding,
+                        request.target_xy,
                     )
                 else:
-                    source_qpos = generator.generate(generation_input)
+                    source_qpos = generator.generate(
+                        request.motion,
+                        request.target_xy,
+                    )
             except ValueError as exc:
                 node.log(
                     "warn",

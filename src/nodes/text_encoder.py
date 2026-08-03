@@ -4,7 +4,6 @@ import time
 
 from dora import Node
 
-from motion_gen.ardy.parser import parse_motion_command
 from shared.config import TextEncoderConfig
 from shared.messages import (
     EncodedCommand,
@@ -31,8 +30,7 @@ def main() -> None:
         request = agent_command_from_arrow(event["value"], metadata)
         started_at = time.perf_counter()
         try:
-            command = parse_motion_command(request.text)
-            embedding = encoder.encode(command.motion)
+            embedding = encoder.encode(request.motion)
         except ValueError as exc:
             node.log(
                 "warn",
@@ -52,6 +50,8 @@ def main() -> None:
         encoded = EncodedCommand(
             observation_id=request.observation_id,
             text=request.text,
+            motion=request.motion,
+            target_xy=request.target_xy,
             embedding=embedding,
         )
         value, output_metadata = encoded_command_to_arrow(encoded)
@@ -61,12 +61,12 @@ def main() -> None:
         node.log(
             "info",
             f"[OBS {request.observation_id}] command encoded: "
-            f"text={command.motion!r} encode_ms={encode_ms:.1f}",
+            f"text={request.motion!r} encode_ms={encode_ms:.1f}",
             target="dsrf.text_encoder",
             fields={
                 "event": "command_encoded",
                 "observation_id": str(request.observation_id),
-                "command": command.motion,
+                "command": request.motion,
                 "encode_ms": f"{encode_ms:.1f}",
             },
         )

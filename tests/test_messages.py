@@ -5,6 +5,7 @@ from shared.messages import (
     EncodedCommand,
     MotionChunk,
     PipelineError,
+    ProjectionContext,
     VisualObservation,
     agent_command_from_arrow,
     agent_command_to_arrow,
@@ -33,26 +34,51 @@ def test_motion_arrow_round_trip() -> None:
 
 
 def test_agent_command_arrow_round_trip() -> None:
-    command = AgentCommand(3, "walk left 0.3 facing=forward")
+    command = AgentCommand(3, "waypoint", "walk", (0.4, 0.2))
     value, metadata = agent_command_to_arrow(command)
     assert agent_command_from_arrow(value, metadata) == command
 
 
 def test_encoded_command_arrow_round_trip() -> None:
-    command = EncodedCommand(5, "turn right", np.arange(4096, dtype=np.float32))
+    command = EncodedCommand(
+        5,
+        "waypoint",
+        "walk",
+        (0.4, -0.2),
+        np.arange(4096, dtype=np.float32),
+    )
     value, metadata = encoded_command_to_arrow(command)
     restored = encoded_command_from_arrow(value, metadata)
 
     assert restored.observation_id == 5
-    assert restored.text == "turn right"
+    assert restored.text == "waypoint"
+    assert restored.motion == "walk"
+    assert restored.target_xy == (0.4, -0.2)
     assert restored.embedding.dtype == np.float32
     np.testing.assert_array_equal(restored.embedding, command.embedding)
 
 
 def test_observation_arrow_round_trip() -> None:
-    observation = VisualObservation(4, "stand", b"jpeg")
+    projection = ProjectionContext(
+        depth=np.arange(12, dtype=np.float32).reshape(3, 4) + 1.0,
+        camera_pos_w=np.array([1.0, 2.0, 3.0]),
+        camera_forward_w=np.array([1.0, 0.0, 0.0]),
+        camera_up_w=np.array([0.0, 0.0, 1.0]),
+        frustum_height=1.0,
+        root_pos_w=np.zeros(3),
+        root_quat_w=np.array([1.0, 0.0, 0.0, 0.0]),
+        near=0.01,
+        far=100.0,
+    )
+    observation = VisualObservation(4, "stand", b"jpeg", projection)
     value, metadata = observation_to_arrow(observation)
-    assert observation_from_arrow(value, metadata) == observation
+    restored = observation_from_arrow(value, metadata)
+    assert restored.observation_id == observation.observation_id
+    assert restored.completed_command == observation.completed_command
+    assert restored.jpeg == observation.jpeg
+    assert restored.projection is not None
+    np.testing.assert_array_equal(restored.projection.depth, projection.depth)
+    np.testing.assert_allclose(restored.projection.camera_pos_w, projection.camera_pos_w)
 
 
 def test_pipeline_error_arrow_round_trip() -> None:

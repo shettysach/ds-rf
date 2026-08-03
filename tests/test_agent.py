@@ -1,10 +1,14 @@
 import json
+import math
 from typing import Any, cast
+
+import numpy as np
 
 from agent.vlm import LlamaServerClient
 from nodes.agent import AgentLoop
 from shared.messages import (
     PipelineError,
+    ProjectionContext,
     VisualObservation,
     agent_command_from_arrow,
     observation_to_arrow,
@@ -113,6 +117,20 @@ def _observation_event(observation: VisualObservation) -> dict[str, object]:
     }
 
 
+def _projection() -> ProjectionContext:
+    return ProjectionContext(
+        depth=np.full((5, 5), math.sqrt(2.0), dtype=np.float32),
+        camera_pos_w=np.array([0.0, 0.0, 1.0]),
+        camera_forward_w=np.array([math.sqrt(0.5), 0.0, -math.sqrt(0.5)]),
+        camera_up_w=np.array([math.sqrt(0.5), 0.0, math.sqrt(0.5)]),
+        frustum_height=1.0,
+        root_pos_w=np.zeros(3),
+        root_quat_w=np.array([1.0, 0.0, 0.0, 0.0]),
+        near=0.01,
+        far=100.0,
+    )
+
+
 def _error_event(observation_id: int) -> dict[str, object]:
     return {
         "type": "INPUT",
@@ -136,10 +154,7 @@ def _encoding_error_event(observation_id: int) -> dict[str, object]:
 def test_agent_retries_three_invalid_responses_then_stands() -> None:
     node = _Node(
         [
-            _observation_event(VisualObservation(0, None, b"jpeg")),
-            _error_event(0),
-            _error_event(0),
-            _error_event(0),
+            _observation_event(VisualObservation(0, None, b"jpeg", _projection())),
             {"type": "STOP"},
         ]
     )
@@ -153,10 +168,7 @@ def test_agent_retries_three_invalid_responses_then_stands() -> None:
         if output_id == "command"
     ]
     assert [command.text for command in commands] == [
-        "invalid one",
-        "invalid two",
-        "invalid three",
-        '{"motion":"stand","direction":"forward"}',
+        '{"motion":"stand","waypoint_2d":null}',
     ]
     assert client.feedback[0] is None
     assert all(feedback is not None for feedback in client.feedback[1:])
@@ -168,36 +180,72 @@ def test_agent_retries_three_invalid_responses_then_stands() -> None:
     assert vlm_messages[1].endswith("retry=1")
     assert "[OBS 0] VLM command: 'invalid three'" in vlm_messages[2]
     assert vlm_messages[2].endswith("retry=2")
-    assert any("fallback command: '{\"motion\":\"stand\",\"direction\":\"forward\"}'" in message for _, message, _ in node.logs)
+    assert any(
+        "fallback command: '{\"motion\":\"stand\",\"waypoint_2d\":null}'"
+        in message
+        for _, message, _ in node.logs
+    )
 
 
 def test_agent_commits_exact_completed_command() -> None:
     node = _Node(
         [
-            _observation_event(VisualObservation(0, None, b"first")),
-            _observation_event(VisualObservation(1, "walk forward 0.4", b"second")),
+            _observation_event(VisualObservation(0, None, b"first", _projection())),
+            _observation_event(
+                VisualObservation(
+                    1,
+                    '{"motion":"walk","waypoint_2d":[500,500]}',
+                    b"second",
+                    _projection(),
+                )
+            ),
             {"type": "STOP"},
         ]
     )
-    client = _Client(["walk forward 0.4", "stand"])
+    client = _Client(
+        [
+            '{"motion":"walk","waypoint_2d":[500,500]}',
+            '{"motion":"stand","waypoint_2d":null}',
+        ]
+    )
 
     AgentLoop(cast(Any, node), cast(Any, client)).run()
 
-    assert client.commits == [(0, "walk forward 0.4")]
+    assert client.commits == [
+        (0, '{"motion":"walk","waypoint_2d":[500,500]}')
+    ]
+
+
+def test_agent_stand_bypasses_missing_projection() -> None:
+    node = _Node(
+        [
+            _observation_event(VisualObservation(0, None, b"jpeg")),
+            {"type": "STOP"},
+        ]
+    )
+    client = _Client(['{"motion":"stand","waypoint_2d":null}'])
+
+    AgentLoop(cast(Any, node), cast(Any, client)).run()
+
+    command = agent_command_from_arrow(
+        node.outputs[0][1], cast(Any, node.outputs[0][2]["metadata"])
+    )
+    assert command.motion == "stand"
+    assert command.target_xy is None
 
 
 def test_agent_retries_text_encoder_errors() -> None:
     node = _Node(
         [
-            _observation_event(VisualObservation(0, None, b"jpeg")),
+            _observation_event(VisualObservation(0, None, b"jpeg", _projection())),
             _encoding_error_event(0),
             {"type": "STOP"},
         ]
     )
     client = _Client(
         [
-            "not JSON",
-            '{"motion":"walk","direction":"forward"}',
+            '{"motion":"walk","waypoint_2d":[500,500]}',
+            '{"motion":"walk","waypoint_2d":[500,500]}',
         ]
     )
 
@@ -209,7 +257,7 @@ def test_agent_retries_text_encoder_errors() -> None:
         if output_id == "command"
     ]
     assert [command.text for command in commands] == [
-        "not JSON",
-        '{"motion":"walk","direction":"forward"}',
+        '{"motion":"walk","waypoint_2d":[500,500]}',
+        '{"motion":"walk","waypoint_2d":[500,500]}',
     ]
     assert client.feedback[1] is not None

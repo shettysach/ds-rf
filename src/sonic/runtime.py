@@ -166,12 +166,13 @@ class SonicRuntime:
         self, *, completed_command: str | None
     ) -> tuple[float, int]:
         render_started_at = time.perf_counter()
-        jpeg = self.renderer.capture_jpeg()
+        jpeg, projection = self.renderer.capture_rgbd()
         render_ms = (time.perf_counter() - render_started_at) * 1000.0
         observation = VisualObservation(
             observation_id=self.observation_id,
             completed_command=completed_command,
             jpeg=jpeg,
+            projection=projection,
         )
         data, metadata = observation_to_arrow(observation)
         self.node.send_output("observation", data, metadata=metadata)
