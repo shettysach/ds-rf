@@ -8,7 +8,7 @@ from ardy.exports.mujoco import MujocoQposConverter
 from ardy.model import load_model
 from ardy.motion_rep.tools import length_to_mask
 
-from motion_gen.ardy.encoding import load_conditioning
+from motion_gen.ardy.encoder import load_conditioning
 from motion_gen.ardy.history import build_initial_history
 from shared.g1 import standing_qpos
 

@@ -7,7 +7,7 @@ import torch
 from ardy.exports.mujoco import MujocoQposConverter
 from ardy.skeleton import G1Skeleton34
 
-from motion_gen.ardy.encoding import load_conditioning
+from motion_gen.ardy.encoder import load_conditioning
 from motion_gen.ardy.history import qpos_to_ardy_inputs
 from shared.g1 import standing_qpos
 
@@ -28,7 +28,9 @@ def test_load_ardy_conditioning(tmp_path: Path) -> None:
     assert bool(text_pad_mask.all())
 
 
-def test_ardy_model_loader_receives_a_device_string(monkeypatch, tmp_path: Path) -> None:
+def test_ardy_model_loader_receives_a_device_string(
+    monkeypatch, tmp_path: Path
+) -> None:
     import motion_gen.ardy.generator as ardy_generator
 
     received: dict[str, object] = {}
