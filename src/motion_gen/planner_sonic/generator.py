@@ -27,10 +27,13 @@ class PlannerSonic:
         self,
         motion: str,
         target_xy: tuple[float, float] | None,
+        direction: str | None = None,
     ) -> np.ndarray:
         mode = planner_mode(motion)
-        if (motion == "stand") != (target_xy is None):
-            raise ValueError("stand requires no target; walk requires target_xy")
+        if motion == "stand" and (target_xy is not None or direction is not None):
+            raise ValueError("stand requires no target")
+        if motion == "walk" and (target_xy is None) == (direction is None):
+            raise ValueError("walk requires exactly one target")
 
         root = self._context[0, -1]
         root_position = root[:3].astype(np.float32)
@@ -41,7 +44,9 @@ class PlannerSonic:
         positions = np.zeros((1, PLANNER_CONTEXT_FRAMES, 3), dtype=np.float32)
         headings = np.zeros((1, PLANNER_CONTEXT_FRAMES), dtype=np.float32)
 
-        if target_xy is not None:
+        if direction is not None:
+            movement = np.array(_DIRECTION_VECTORS[direction], dtype=np.float32)
+        elif target_xy is not None:
             forward, left = target_xy
             world_delta = np.array(
                 [
@@ -87,3 +92,11 @@ class PlannerSonic:
 def _quaternion_yaw(quaternion_wxyz: np.ndarray) -> float:
     w, x, y, z = (float(value) for value in quaternion_wxyz)
     return float(np.arctan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z)))
+
+
+_DIRECTION_VECTORS = {
+    "forward": (1.0, 0.0, 0.0),
+    "backward": (-1.0, 0.0, 0.0),
+    "left": (0.0, 1.0, 0.0),
+    "right": (0.0, -1.0, 0.0),
+}

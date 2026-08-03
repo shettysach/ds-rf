@@ -78,6 +78,7 @@ class AgentCommand:
     text: str
     motion: str
     target_xy: tuple[float, float] | None
+    direction: str | None = None
 
     def __post_init__(self) -> None:
         if self.observation_id < 0:
@@ -85,7 +86,7 @@ class AgentCommand:
         normalized = self.text.strip()
         if not normalized:
             raise ValueError("Command is empty")
-        _validate_navigation(self.motion, self.target_xy)
+        _validate_navigation(self.motion, self.target_xy, self.direction)
         object.__setattr__(self, "text", normalized)
 
 
@@ -96,6 +97,7 @@ class EncodedCommand:
     motion: str
     target_xy: tuple[float, float] | None
     embedding: np.ndarray
+    direction: str | None = None
 
     def __post_init__(self) -> None:
         if self.observation_id < 0:
@@ -103,7 +105,7 @@ class EncodedCommand:
         normalized = self.text.strip()
         if not normalized:
             raise ValueError("Command is empty")
-        _validate_navigation(self.motion, self.target_xy)
+        _validate_navigation(self.motion, self.target_xy, self.direction)
         embedding = np.asarray(self.embedding, dtype=np.float32)
         if embedding.shape != (ARDY_EMBEDDING_SIZE,):
             raise ValueError(
@@ -175,6 +177,8 @@ def agent_command_to_arrow(
     }
     if command.target_xy is not None:
         metadata["target_xy"] = json.dumps(command.target_xy, separators=(",", ":"))
+    if command.direction is not None:
+        metadata["direction"] = command.direction
     return pa.array([command.text], type=pa.string()), metadata
 
 
@@ -184,6 +188,7 @@ def agent_command_from_arrow(value: pa.Array, metadata: dict[str, Any]) -> Agent
         text=_string_from_arrow(value),
         motion=str(metadata["motion"]),
         target_xy=_target_xy(metadata),
+        direction=_direction(metadata),
     )
 
 
@@ -199,6 +204,7 @@ def encoded_command_to_arrow(
             if command.target_xy is not None
             else {}
         ),
+        **({"direction": command.direction} if command.direction is not None else {}),
     }
 
 
@@ -211,6 +217,7 @@ def encoded_command_from_arrow(
         motion=str(metadata["motion"]),
         target_xy=_target_xy(metadata),
         embedding=np.asarray(value.to_numpy(zero_copy_only=False), dtype=np.float32),
+        direction=_direction(metadata),
     )
 
 
@@ -345,16 +352,32 @@ def _target_xy(metadata: dict[str, Any]) -> tuple[float, float] | None:
     return (float(value[0]), float(value[1]))
 
 
+def _direction(metadata: dict[str, Any]) -> str | None:
+    if "direction" not in metadata:
+        return None
+    direction = str(metadata["direction"])
+    if direction not in {"forward", "backward", "left", "right"}:
+        raise ValueError("Unsupported direction")
+    return direction
+
+
 def _validate_navigation(
-    motion: str, target_xy: tuple[float, float] | None
+    motion: str, target_xy: tuple[float, float] | None, direction: str | None
 ) -> None:
     if motion not in {"stand", "walk"}:
         raise ValueError("Motion must be stand or walk")
     if motion == "stand":
-        if target_xy is not None:
-            raise ValueError("Stand command must not have target_xy")
+        if target_xy is not None or direction is not None:
+            raise ValueError("Stand command must not have a target")
         return
-    if target_xy is None or len(target_xy) != 2:
+    if (target_xy is None) == (direction is None):
+        raise ValueError("Walk command requires exactly one target")
+    if direction is not None:
+        if direction not in {"forward", "backward", "left", "right"}:
+            raise ValueError("Unsupported direction")
+        return
+    assert target_xy is not None
+    if len(target_xy) != 2:
         raise ValueError("Walk command requires target_xy")
     if not all(np.isfinite(value) for value in target_xy):
         raise ValueError("target_xy must be finite")

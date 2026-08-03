@@ -8,7 +8,8 @@ nodes:
       DSRF_VLM_URL: http://127.0.0.1:8080
       DSRF_VLM_TIMEOUT: "120"
       DSRF_VLM_SYSTEM_PROMPT: TASK.md
-      DSRF_VLM_USER_PROMPT: prompt/USER.md
+      DSRF_VLM_USER_PROMPT: prompt/PLANNER_USER.md
+      DSRF_MOTION_GENERATOR: planner_sonic
     inputs:
       observation: sonic/observation
       planning_error: motion-gen/error

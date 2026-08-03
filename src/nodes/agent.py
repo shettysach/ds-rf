@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from io import BytesIO
 from pathlib import Path
@@ -21,11 +22,17 @@ from shared.messages import (
 
 MAX_INVALID_RESPONSES = 3
 FALLBACK_COMMAND = '{"motion":"stand","waypoint_2d":null}'
+PLANNER_FALLBACK_COMMAND = '{"motion":"stand","direction":"forward"}'
 
 
 class AgentLoop:
     def __init__(
-        self, node: Node, client: LlamaServerClient, *, waypoint_debug: bool = False
+        self,
+        node: Node,
+        client: LlamaServerClient,
+        *,
+        waypoint_debug: bool = False,
+        command_mode: str = "waypoint",
     ) -> None:
         self.node = node
         self.client = client
@@ -33,6 +40,7 @@ class AgentLoop:
         self.pending_command: str | None = None
         self.invalid_responses = 0
         self.waypoint_debug = waypoint_debug
+        self.command_mode = command_mode
 
     def run(self) -> None:
         for event in self.node:
@@ -122,16 +130,16 @@ class AgentLoop:
             self.node.log(
                 "warn",
                 f"[OBS {observation_id}] fallback command: "
-                f"{FALLBACK_COMMAND!r} after {self.invalid_responses} invalid responses",
+                f"{self._fallback_command!r} after {self.invalid_responses} invalid responses",
                 target="dsrf.agent",
                 fields={
                     "event": "fallback_command",
                     "observation_id": str(observation_id),
-                    "command": FALLBACK_COMMAND,
+                    "command": self._fallback_command,
                     "invalid_responses": str(self.invalid_responses),
                 },
             )
-            self._send(FALLBACK_COMMAND, motion="stand", target_xy=None)
+            self._send(self._fallback_command, motion="stand", target_xy=None)
             return
         feedback = f"Your previous response {previous!r} was invalid: {detail}"
         self._query_and_send(retry_feedback=feedback)
@@ -190,6 +198,15 @@ class AgentLoop:
             },
         )
         try:
+            if self.command_mode == "direction":
+                motion, direction = _parse_planner_command(command)
+                self._send(
+                    command,
+                    motion=motion,
+                    target_xy=None,
+                    direction=direction,
+                )
+                return
             parsed = parse_waypoint_command(command)
             if parsed.motion == "stand":
                 self._send(command, motion="stand", target_xy=None)
@@ -216,6 +233,7 @@ class AgentLoop:
         *,
         motion: str,
         target_xy: tuple[float, float] | None,
+        direction: str | None = None,
     ) -> None:
         assert self.observation is not None
         command = AgentCommand(
@@ -223,10 +241,15 @@ class AgentLoop:
             command_text,
             motion,
             target_xy,
+            direction,
         )
         data, metadata = agent_command_to_arrow(command)
         self.node.send_output("command", data, metadata=metadata)
         self.pending_command = command.text
+
+    @property
+    def _fallback_command(self) -> str:
+        return PLANNER_FALLBACK_COMMAND if self.command_mode == "direction" else FALLBACK_COMMAND
 
     def _log_waypoint(self, waypoint: ResolvedWaypoint) -> None:
         assert self.observation is not None
@@ -267,7 +290,28 @@ def main() -> None:
         system_prompt=cfg.system_prompt.read_text(encoding="utf-8"),
         user_prompt=cfg.user_prompt.read_text(encoding="utf-8"),
     )
-    AgentLoop(node, client, waypoint_debug=cfg.waypoint_debug).run()
+    AgentLoop(
+        node,
+        client,
+        waypoint_debug=cfg.waypoint_debug,
+        command_mode=cfg.command_mode,
+    ).run()
+
+
+def _parse_planner_command(text: str) -> tuple[str, str | None]:
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError("Command must be a JSON object") from exc
+    if not isinstance(payload, dict) or set(payload) != {"motion", "direction"}:
+        raise ValueError("Planner command must contain only motion and direction")
+    motion = payload["motion"]
+    direction = payload["direction"]
+    if motion == "stand" and direction == "forward":
+        return "stand", None
+    if motion == "walk" and direction in {"forward", "backward", "left", "right"}:
+        return "walk", direction
+    raise ValueError("Unsupported planner motion or direction")
 
 
 if __name__ == "__main__":

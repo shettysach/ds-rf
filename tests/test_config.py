@@ -123,6 +123,7 @@ def test_agent_config_from_env(monkeypatch) -> None:
         system_prompt=Path("/prompts/system.md"),
         user_prompt=Path("/prompts/user.md"),
         waypoint_debug=False,
+        command_mode="waypoint",
     )
 
 

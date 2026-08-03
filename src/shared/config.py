@@ -86,6 +86,7 @@ class AgentConfig:
     system_prompt: Path
     user_prompt: Path
     waypoint_debug: bool
+    command_mode: Literal["waypoint", "direction"]
 
     @classmethod
     def from_env(cls) -> "AgentConfig":
@@ -101,6 +102,12 @@ class AgentConfig:
             system_prompt=Path(os.environ["DSRF_VLM_SYSTEM_PROMPT"]),
             user_prompt=Path(os.environ["DSRF_VLM_USER_PROMPT"]),
             waypoint_debug=_optional_boolean("DSRF_WAYPOINT_DEBUG", default=False),
+            command_mode=(
+                "direction"
+                if os.environ.get("DSRF_MOTION_GENERATOR", "").strip().lower()
+                == "planner_sonic"
+                else "waypoint"
+            ),
         )
 
 

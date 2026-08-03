@@ -64,6 +64,7 @@ def main() -> None:
                     source_qpos = generator.generate(
                         request.motion,
                         request.target_xy,
+                        request.direction,
                     )
             except ValueError as exc:
                 node.log(

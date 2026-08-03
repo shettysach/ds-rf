@@ -9,6 +9,7 @@ nodes:
       DSRF_VLM_TIMEOUT: "120"
       DSRF_VLM_SYSTEM_PROMPT: TASK.md
       DSRF_VLM_USER_PROMPT: prompt/USER.md
+      DSRF_MOTION_GENERATOR: ardy
     inputs:
       observation: sonic/observation
       encoding_error: text-encoder/error

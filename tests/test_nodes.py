@@ -101,8 +101,8 @@ def _planner_motion() -> np.ndarray:
 def test_motion_gen_generates_one_segment_per_command(monkeypatch) -> None:
     generated: list[tuple[str, tuple[float, float] | None]] = []
 
-    def generate(motion, target_xy):
-        generated.append((motion, target_xy))
+    def generate(motion, target_xy, direction):
+        generated.append((motion, target_xy, direction))
         return _planner_motion()
 
     node = _run_motion_gen(
@@ -112,7 +112,7 @@ def test_motion_gen_generates_one_segment_per_command(monkeypatch) -> None:
     )
 
     motions = [output for output in node.outputs if output[0] == "motion"]
-    assert generated == [("walk", (1.0, 0.0))]
+    assert generated == [("walk", (1.0, 0.0), None)]
     assert len(motions) == 1
     _, value, kwargs = motions[0]
     chunk = motion_from_arrow(value, kwargs["metadata"])
@@ -122,8 +122,8 @@ def test_motion_gen_generates_one_segment_per_command(monkeypatch) -> None:
 
 
 def test_motion_gen_reports_invalid_raw_vlm_response(monkeypatch) -> None:
-    def generate(motion, target_xy):
-        del motion, target_xy
+    def generate(motion, target_xy, direction):
+        del motion, target_xy, direction
         raise ValueError("Command must be a JSON object")
 
     node = _run_motion_gen(
@@ -141,8 +141,8 @@ def test_motion_gen_reports_invalid_raw_vlm_response(monkeypatch) -> None:
 
 
 def test_motion_gen_does_not_swallow_planner_errors(monkeypatch) -> None:
-    def generate(motion, target_xy):
-        del motion, target_xy
+    def generate(motion, target_xy, direction):
+        del motion, target_xy, direction
         raise KeyError("unexpected")
 
     with pytest.raises(KeyError, match="unexpected"):

@@ -30,6 +30,8 @@ def main() -> None:
         request = agent_command_from_arrow(event["value"], metadata)
         started_at = time.perf_counter()
         try:
+            if request.direction is not None:
+                raise ValueError("Directional commands are only supported by planner_sonic")
             embedding = encoder.encode(request.motion)
         except ValueError as exc:
             node.log(
