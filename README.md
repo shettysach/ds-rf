@@ -50,7 +50,8 @@ dora run dataflow.yml
 ## ARDY smoke test
 
 The ARDY smoke graph skips the agent and sends one fixed-encoding motion to
-SONIC after the simulator publishes its initial observation:
+SONIC after the simulator publishes its initial observation. It generates a
+five-second reference:
 
 ```bash
 export DSRF_MOTION_GENERATOR=ardy

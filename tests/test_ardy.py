@@ -88,10 +88,10 @@ def test_ardy_history_conditions_generation_but_is_not_returned() -> None:
     model = Mock()
     model.gen_horizon_len = 52
     model.diffusion.num_base_steps = 10
-    model.return_value = torch.zeros((1, 56, 3))
+    model.return_value = torch.zeros((1, 129, 3))
     model.motion_rep.inverse.side_effect = lambda motion, **kwargs: {"motion": motion}
     converter = Mock()
-    converter.dict_to_qpos.return_value = np.zeros((1, 52, 36), dtype=np.float32)
+    converter.dict_to_qpos.return_value = np.zeros((1, 125, 36), dtype=np.float32)
 
     generator = ardy_generator.ArdyGenerator.__new__(ardy_generator.ArdyGenerator)
     generator.device = torch.device("cpu")
@@ -104,10 +104,10 @@ def test_ardy_history_conditions_generation_but_is_not_returned() -> None:
 
     qpos = generator.generate("ignored")
 
-    assert qpos.shape == (52, 36)
+    assert qpos.shape == (125, 36)
     model.motion_rep.inverse.assert_called_once()
     generated_motion = model.motion_rep.inverse.call_args.args[0]
-    assert generated_motion.shape == (1, 52, 3)
+    assert generated_motion.shape == (1, 125, 3)
     assert model.call_args.kwargs["init_history_sequence"] is generator.initial_history
     assert model.call_args.kwargs["first_heading_angle"] is None
 

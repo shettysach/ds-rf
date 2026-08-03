@@ -17,6 +17,7 @@ class ArdyGenerator:
     """Fixed-conditioning ARDY smoke-test backend for Unitree G1."""
 
     fps = 25
+    smoke_duration_s = 5
 
     def __init__(
         self,
@@ -53,7 +54,7 @@ class ArdyGenerator:
 
     def generate(self, text: str) -> np.ndarray:
         del text  # The smoke test always uses the fixed ENCODING tensor.
-        generated_frames = int(self.model.gen_horizon_len)
+        generated_frames = self.fps * self.smoke_duration_s
         num_frames = generated_frames + self.history_frames
         lengths = torch.tensor([num_frames], device=self.device)
 
