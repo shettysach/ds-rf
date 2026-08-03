@@ -8,6 +8,7 @@ from shared.config import (
     MotionGenConfig,
     PlannerSonicConfig,
     SonicConfig,
+    TextEncoderConfig,
 )
 
 
@@ -26,25 +27,30 @@ def test_ardy_motion_gen_config_from_env(monkeypatch) -> None:
     monkeypatch.setenv("DSRF_DEVICE", "cpu")
     monkeypatch.setenv("DSRF_MOTION_GENERATOR", "ardy")
     monkeypatch.setenv("CHECKPOINTS_DIR", "/models/ardy")
-    monkeypatch.setenv("ENCODING", "/encodings/walk_forward.pt")
 
     assert MotionGenConfig.from_env() == MotionGenConfig(
         device="cpu",
         backend=ArdyConfig(
             checkpoints_dir=Path("/models/ardy"),
-            encoding=Path("/encodings/walk_forward.pt"),
         ),
     )
 
 
-def test_ardy_motion_gen_config_requires_encoding(monkeypatch) -> None:
+def test_ardy_motion_gen_config_requires_no_fixed_conditioning(monkeypatch) -> None:
     monkeypatch.setenv("DSRF_DEVICE", "cuda:0")
     monkeypatch.setenv("DSRF_MOTION_GENERATOR", "ardy")
     monkeypatch.setenv("CHECKPOINTS_DIR", "/models/ardy")
-    monkeypatch.delenv("ENCODING", raising=False)
+    assert MotionGenConfig.from_env().backend == ArdyConfig(Path("/models/ardy"))
 
-    with pytest.raises(KeyError, match="ENCODING"):
-        MotionGenConfig.from_env()
+
+def test_text_encoder_config_from_env(monkeypatch) -> None:
+    monkeypatch.setenv("DSRF_DEVICE", "cuda:0")
+    monkeypatch.setenv("DSRF_TEXT_ENCODER_MODEL", "/models/text-encoder")
+
+    assert TextEncoderConfig.from_env() == TextEncoderConfig(
+        model=Path("/models/text-encoder"),
+        device="cuda:0",
+    )
 
 
 def test_motion_gen_config_rejects_unknown_backend(monkeypatch) -> None:

@@ -40,27 +40,25 @@ Also an OpenAI compatible VLM inference server.
 Run OpenAI compatible VLM inference server.
 
 ```bash
-dora run dataflow.yml
+dora run demo.yml
 ```
 
 - Set `DSRF_VIEWER=none` to disable the window for headless runs.
 - Set `DSRF_REFERENCE_GHOST=true` to show the active motion reference in the
   native viewer.
 
-## ARDY smoke test
+## ARDY closed loop
 
-The ARDY smoke graph skips the agent and sends one fixed-encoding motion to
-SONIC after the simulator publishes its initial observation. It generates a
-five-second reference:
+The ARDY graph encodes each agent command with a local Transformers model,
+generates a five-second reference, and carries ARDY's generated history into the
+next request:
 
 ```bash
-export DSRF_MOTION_GENERATOR=ardy
+export DSRF_TEXT_ENCODER_MODEL=/path/to/local/model
 export CHECKPOINTS_DIR=/path/to/ardy/checkpoints
-export ENCODING=~/Videos/walk_forward.pt
-dora run ardy_smoketest.yml
+dora run ardy.yml
 ```
 
-`CHECKPOINTS_DIR` may be the G1 checkpoint directory itself (containing
-`config.yaml`) or its parent directory containing
-`ARDY-G1-RP-25FPS-Horizon52`. The smoke graph uses the `cu128` and
-experimental `ardy` extras and defaults `DSRF_DEVICE` to `cuda:0`.
+The text model must expose `last_hidden_state` with hidden size 4096. The
+encoder applies attention-mask-aware mean pooling and sends a float32 vector to
+ARDY.

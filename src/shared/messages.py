@@ -9,6 +9,7 @@ import pyarrow as pa
 
 MOTION_COLUMNS = 36
 SONIC_FPS = 50
+ARDY_EMBEDDING_SIZE = 4096
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,30 @@ class AgentCommand:
         if not normalized:
             raise ValueError("Command is empty")
         object.__setattr__(self, "text", normalized)
+
+
+@dataclass(frozen=True)
+class EncodedCommand:
+    observation_id: int
+    text: str
+    embedding: np.ndarray
+
+    def __post_init__(self) -> None:
+        if self.observation_id < 0:
+            raise ValueError("Observation ID must be non-negative")
+        normalized = self.text.strip()
+        if not normalized:
+            raise ValueError("Command is empty")
+        embedding = np.asarray(self.embedding, dtype=np.float32)
+        if embedding.shape != (ARDY_EMBEDDING_SIZE,):
+            raise ValueError(
+                "Command embedding must have shape "
+                f"[{ARDY_EMBEDDING_SIZE}], got {embedding.shape}"
+            )
+        if not np.isfinite(embedding).all():
+            raise ValueError("Command embedding contains NaN or infinite values")
+        object.__setattr__(self, "text", normalized)
+        object.__setattr__(self, "embedding", np.ascontiguousarray(embedding))
 
 
 @dataclass(frozen=True)
@@ -105,12 +130,29 @@ def agent_command_to_arrow(
     }
 
 
-def agent_command_from_arrow(
-    value: pa.Array, metadata: dict[str, Any]
-) -> AgentCommand:
+def agent_command_from_arrow(value: pa.Array, metadata: dict[str, Any]) -> AgentCommand:
     return AgentCommand(
         observation_id=_observation_id(metadata),
         text=_string_from_arrow(value),
+    )
+
+
+def encoded_command_to_arrow(
+    command: EncodedCommand,
+) -> tuple[pa.Array, dict[str, str]]:
+    return pa.array(command.embedding, type=pa.float32()), {
+        "observation_id": str(command.observation_id),
+        "text": command.text,
+    }
+
+
+def encoded_command_from_arrow(
+    value: pa.Array, metadata: dict[str, Any]
+) -> EncodedCommand:
+    return EncodedCommand(
+        observation_id=_observation_id(metadata),
+        text=str(metadata["text"]),
+        embedding=np.asarray(value.to_numpy(zero_copy_only=False), dtype=np.float32),
     )
 
 

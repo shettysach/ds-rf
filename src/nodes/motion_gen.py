@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import time
-from typing import Protocol
+from typing import Any
 
-import numpy as np
 from dora import Node
 
 from motion_gen.planner_sonic import PlannerSonic
@@ -11,27 +10,22 @@ from motion_gen.resample import resample_motion
 from shared.config import ArdyConfig, MotionGenConfig, PlannerSonicConfig
 from shared.messages import (
     SONIC_FPS,
+    AgentCommand,
+    EncodedCommand,
     PipelineError,
     agent_command_from_arrow,
+    encoded_command_from_arrow,
     motion_to_arrow,
     pipeline_error_to_arrow,
 )
 
 
-class MotionGenerator(Protocol):
-    fps: int
-
-    def generate(self, text: str) -> np.ndarray: ...
-
-
-def _create_generator(cfg: MotionGenConfig) -> MotionGenerator:
+def _create_generator(cfg: MotionGenConfig) -> Any:
     match cfg.backend:
         case ArdyConfig():
             from motion_gen.ardy.generator import Ardy
 
-            return Ardy(
-                cfg.backend.checkpoints_dir, cfg.backend.encoding, device=cfg.device
-            )
+            return Ardy(cfg.backend.checkpoints_dir, device=cfg.device)
 
         case PlannerSonicConfig():
             return PlannerSonic(cfg.backend.planner_onnx, device=cfg.device)
@@ -41,21 +35,32 @@ def main() -> None:
     cfg = MotionGenConfig.from_env()
     node = Node()
     generator = _create_generator(cfg)
+    ardy_backend = isinstance(cfg.backend, ArdyConfig)
+    input_id = "encoded_command" if ardy_backend else "command"
 
     for event in node:
         if event["type"] == "STOP":
             break
         if event["type"] != "INPUT":
             continue
-        if event["id"] != "command":
+        if event["id"] != input_id:
             continue
 
         metadata = dict(event.get("metadata") or {})
-        request = agent_command_from_arrow(event["value"], metadata)
+        request: AgentCommand | EncodedCommand
+        if ardy_backend:
+            request = encoded_command_from_arrow(event["value"], metadata)
+        else:
+            request = agent_command_from_arrow(event["value"], metadata)
         started_at = time.perf_counter()
         try:
             try:
-                source_qpos = generator.generate(request.text)
+                generation_input = (
+                    request.embedding
+                    if isinstance(request, EncodedCommand)
+                    else request.text
+                )
+                source_qpos = generator.generate(generation_input)
             except ValueError as exc:
                 node.log(
                     "warn",

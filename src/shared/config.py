@@ -21,7 +21,6 @@ class MotionGenConfig:
                 device=os.environ["DSRF_DEVICE"],
                 backend=ArdyConfig(
                     checkpoints_dir=Path(os.environ["CHECKPOINTS_DIR"]),
-                    encoding=Path(os.environ["ENCODING"]),
                 ),
             )
         return cls(
@@ -40,7 +39,19 @@ class PlannerSonicConfig:
 @dataclass(frozen=True)
 class ArdyConfig:
     checkpoints_dir: Path
-    encoding: Path
+
+
+@dataclass(frozen=True)
+class TextEncoderConfig:
+    model: Path
+    device: str
+
+    @classmethod
+    def from_env(cls) -> "TextEncoderConfig":
+        return cls(
+            model=Path(os.environ["DSRF_TEXT_ENCODER_MODEL"]),
+            device=os.environ["DSRF_DEVICE"],
+        )
 
 
 @dataclass(frozen=True)

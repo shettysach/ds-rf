@@ -13,8 +13,10 @@ import sonic.runtime as sonic_runtime
 from shared.config import PlannerSonicConfig
 from shared.messages import (
     AgentCommand,
+    EncodedCommand,
     MotionChunk,
     agent_command_to_arrow,
+    encoded_command_to_arrow,
     motion_from_arrow,
     motion_to_arrow,
     observation_from_arrow,
@@ -43,6 +45,18 @@ def _command_event(observation_id: int, text: str) -> dict[str, object]:
     return {
         "type": "INPUT",
         "id": "command",
+        "value": value,
+        "metadata": metadata,
+    }
+
+
+def _encoded_command_event(observation_id: int, text: str) -> dict[str, object]:
+    value, metadata = encoded_command_to_arrow(
+        EncodedCommand(observation_id, text, np.ones(4096, dtype=np.float32))
+    )
+    return {
+        "type": "INPUT",
+        "id": "encoded_command",
         "value": value,
         "metadata": metadata,
     }
@@ -121,6 +135,34 @@ def test_motion_gen_does_not_swallow_planner_errors(monkeypatch) -> None:
             [_command_event(0, "walk forward")],
             generate,
         )
+
+
+def test_ardy_motion_gen_consumes_encoded_commands(monkeypatch) -> None:
+    from shared.config import ArdyConfig
+
+    node = _Node([_encoded_command_event(7, "turn right")])
+    generated: list[np.ndarray] = []
+    generator = SimpleNamespace(
+        fps=25,
+        generate=lambda embedding: generated.append(embedding) or _planner_motion(),
+    )
+    config = motion_gen_node.MotionGenConfig(
+        device="cpu",
+        backend=ArdyConfig(Path("checkpoints")),
+    )
+    monkeypatch.setattr(motion_gen_node.MotionGenConfig, "from_env", lambda: config)
+    monkeypatch.setattr(motion_gen_node, "Node", lambda: node)
+    monkeypatch.setattr(motion_gen_node, "_create_generator", lambda cfg: generator)
+
+    motion_gen_node.main()
+
+    assert len(generated) == 1
+    assert generated[0].shape == (4096,)
+    chunk = motion_from_arrow(
+        node.outputs[0][1], cast(Any, node.outputs[0][2]["metadata"])
+    )
+    assert chunk.observation_id == 7
+    assert chunk.command == "turn right"
 
 
 class _Simulation:

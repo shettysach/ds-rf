@@ -8,21 +8,20 @@ from ardy.exports.mujoco import MujocoQposConverter
 from ardy.model import load_model
 from ardy.motion_rep.tools import length_to_mask
 
-from motion_gen.ardy.encoder import load_conditioning
+from motion_gen.ardy.encoder import prepare_conditioning
 from motion_gen.ardy.history import build_initial_history
 from shared.g1 import standing_qpos
 
 
 class Ardy:
-    """Fixed-conditioning ARDY smoke-test backend for Unitree G1."""
+    """Text-conditioned ARDY motion generator for Unitree G1."""
 
     fps = 25
-    smoke_duration_s = 5
+    duration_s = 5
 
     def __init__(
         self,
         checkpoints_dir: Path,
-        encoding_path: Path,
         *,
         device: str = "cpu",
     ) -> None:
@@ -36,10 +35,6 @@ class Ardy:
         if model_fps != self.fps:
             raise ValueError(f"Expected ARDY G1 at {self.fps} FPS, got {model_fps}")
 
-        self.text_feat, self.text_pad_mask = load_conditioning(
-            encoding_path,
-            device=self.device,
-        )
         self.converter = MujocoQposConverter(self.model.skeleton)
         self.history_frames = int(self.model.num_frames_per_token)
         standing_history = np.repeat(standing_qpos()[None], self.history_frames, axis=0)
@@ -50,9 +45,12 @@ class Ardy:
             device=self.device,
         )
 
-    def generate(self, text: str) -> np.ndarray:
-        del text  # The smoke test always uses the fixed ENCODING tensor.
-        generated_frames = self.fps * self.smoke_duration_s
+    def generate(self, embedding: np.ndarray) -> np.ndarray:
+        text_feat, text_pad_mask = prepare_conditioning(
+            embedding,
+            device=self.device,
+        )
+        generated_frames = self.fps * self.duration_s
         num_frames = generated_frames + self.history_frames
         lengths = torch.tensor([num_frames], device=self.device)
 
@@ -64,8 +62,8 @@ class Ardy:
                 first_heading_angle=None,
                 motion_mask=None,
                 observed_motion=None,
-                text_feat=self.text_feat,
-                text_pad_mask=self.text_pad_mask,
+                text_feat=text_feat,
+                text_pad_mask=text_pad_mask,
                 cfg_weight=(2.0, 2.0),
                 progress_bar=lambda iterable: iterable,
                 init_history_sequence=self.initial_history,
@@ -76,6 +74,7 @@ class Ardy:
                     f"ARDY generated {generated_motion.shape[1]} frames; "
                     f"expected {generated_frames}"
                 )
+            next_history = motion[:, -self.history_frames :].detach().clone()
             decoded = self.model.motion_rep.inverse(
                 generated_motion,
                 is_normalized=True,
@@ -92,4 +91,5 @@ class Ardy:
             raise ValueError("ARDY generated no motion frames")
         if not np.isfinite(qpos).all():
             raise ValueError("ARDY qpos contains NaN or infinite values")
+        self.initial_history = next_history
         return qpos

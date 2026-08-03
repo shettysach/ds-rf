@@ -18,7 +18,9 @@ dependencies = [
 
 [project.optional-dependencies]
 ardy = [
+    "accelerate>=1.0",
     "ardy",
+    "transformers>=4.51",
 ]
 cpu = [
     "mjlab",
@@ -35,9 +37,9 @@ cu128 = [
 
 [project.scripts]
 dsrf-agent = "nodes.agent:main"
-dsrf-ardy-smoketest = "nodes.ardy_smoketest:main"
 dsrf-motion-gen = "nodes.motion_gen:main"
 dsrf-sonic = "nodes.sonic:main"
+dsrf-text-encoder = "nodes.text_encoder:main"
 
 [dependency-groups]
 dev = [
@@ -89,6 +91,7 @@ packages = [
     "src/nodes",
     "src/shared",
     "src/sonic",
+    "src/text_encoder",
     "tasks",
 ]
 
