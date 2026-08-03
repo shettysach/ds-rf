@@ -1,15 +1,14 @@
 Choose one motion and direction for the robot's next action.
 
-Return only one JSON object, with exactly these string fields:
+Return exactly one valid JSON object with exactly these two string fields:
 
 ```json
-{"motion":"walk","direction":"left"}
+{"motion":"walk","direction":"forward"}
 ```
 
-Allowed motion values: `stand`, `walk`.
+Allowed values:
+- `motion`: `stand`, `walk`
+- `direction`: `forward`, `backward`, `left`, `right`
+- If `motion` is `stand`, set `direction` to `forward`.
 
-Allowed direction values: `forward`, `backward`, `left`, `right`.
-
-For standing, use direction `forward`.
-
-Do not return Markdown, punctuation outside the JSON object, or an explanation.
+Do not include any extra fields, Markdown, code fences, comments, explanation, or text outside the JSON object.
