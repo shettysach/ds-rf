@@ -26,7 +26,7 @@ class ArdyGenerator:
         self.device = torch.device(device)
         self.model = load_model(
             "g1",
-            device=self.device,
+            device=str(self.device),
             checkpoints_dir=str(checkpoints_dir),
         )
         model_fps = float(self.model.motion_rep.fps)
