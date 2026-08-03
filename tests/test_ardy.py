@@ -1,5 +1,6 @@
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import numpy as np
 import pytest
@@ -79,6 +80,36 @@ def test_standing_qpos_round_trips_through_ardy_inputs() -> None:
     )
 
     np.testing.assert_allclose(restored[0], expected, atol=1e-5)
+
+
+def test_ardy_history_conditions_generation_but_is_not_returned() -> None:
+    import motion_gen.ardy.generator as ardy_generator
+
+    model = Mock()
+    model.gen_horizon_len = 52
+    model.diffusion.num_base_steps = 10
+    model.return_value = torch.zeros((1, 56, 3))
+    model.motion_rep.inverse.side_effect = lambda motion, **kwargs: {"motion": motion}
+    converter = Mock()
+    converter.dict_to_qpos.return_value = np.zeros((1, 52, 36), dtype=np.float32)
+
+    generator = ardy_generator.ArdyGenerator.__new__(ardy_generator.ArdyGenerator)
+    generator.device = torch.device("cpu")
+    generator.model = model
+    generator.converter = converter
+    generator.text_feat = torch.zeros((1, 1, 4096))
+    generator.text_pad_mask = torch.ones((1, 1), dtype=torch.bool)
+    generator.history_frames = 4
+    generator.initial_history = torch.zeros((1, 4, 3))
+
+    qpos = generator.generate("ignored")
+
+    assert qpos.shape == (52, 36)
+    model.motion_rep.inverse.assert_called_once()
+    generated_motion = model.motion_rep.inverse.call_args.args[0]
+    assert generated_motion.shape == (1, 52, 3)
+    assert model.call_args.kwargs["init_history_sequence"] is generator.initial_history
+    assert model.call_args.kwargs["first_heading_angle"] is None
 
 
 @pytest.mark.parametrize("shape", [(4096,), (1, 1, 4096), (2, 4096)])
