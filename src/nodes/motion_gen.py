@@ -6,7 +6,7 @@ from typing import Protocol
 import numpy as np
 from dora import Node
 
-from motion_gen.planner_sonic import PlannerSonicGenerator
+from motion_gen.planner_sonic import PlannerSonic
 from motion_gen.resample import resample_motion
 from shared.config import MotionGenConfig
 from shared.messages import (
@@ -26,19 +26,19 @@ class MotionGenerator(Protocol):
 
 def _create_generator(cfg: MotionGenConfig) -> MotionGenerator:
     if cfg.generator == "ardy":
-        from motion_gen.ardy.generator import ArdyGenerator
+        from motion_gen.ardy.generator import Ardy
 
         if cfg.ardy_checkpoints_dir is None or cfg.encoding is None:
             raise ValueError("ARDY configuration is incomplete")
-        return ArdyGenerator(
+        return Ardy(
             cfg.ardy_checkpoints_dir,
             cfg.encoding,
             device=cfg.device,
         )
-
-    if cfg.planner_onnx is None:
-        raise ValueError("planner_sonic configuration is incomplete")
-    return PlannerSonicGenerator(cfg.planner_onnx, device=cfg.device)
+    else:  # planner_sonic
+        if cfg.planner_onnx is None:
+            raise ValueError("planner_sonic configuration is incomplete")
+        return PlannerSonic(cfg.planner_onnx, device=cfg.device)
 
 
 def main() -> None:

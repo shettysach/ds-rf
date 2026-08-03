@@ -13,7 +13,7 @@ from motion_gen.ardy.history import build_initial_history
 from shared.g1 import standing_qpos
 
 
-class ArdyGenerator:
+class Ardy:
     """Fixed-conditioning ARDY smoke-test backend for Unitree G1."""
 
     fps = 25
@@ -42,9 +42,7 @@ class ArdyGenerator:
         )
         self.converter = MujocoQposConverter(self.model.skeleton)
         self.history_frames = int(self.model.num_frames_per_token)
-        standing_history = np.repeat(
-            standing_qpos()[None], self.history_frames, axis=0
-        )
+        standing_history = np.repeat(standing_qpos()[None], self.history_frames, axis=0)
         self.initial_history = build_initial_history(
             standing_history,
             self.converter,

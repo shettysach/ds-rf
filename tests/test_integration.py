@@ -6,7 +6,7 @@ import onnxruntime as ort
 import pytest
 import torch
 
-from motion_gen.planner_sonic import PlannerSonicGenerator
+from motion_gen.planner_sonic import PlannerSonic
 from motion_gen.resample import resample_motion
 from shared.g1 import DEFAULT_JOINT_POS_MJLAB
 from sonic.mjlab_env import RobotState, SonicMjlabEnv
@@ -28,10 +28,10 @@ CUDA_READY = torch.cuda.is_available() and "CUDAExecutionProvider" in (
     reason="ARDY checkpoint or fixed encoding is unavailable",
 )
 def test_real_ardy_checkpoint_generates_resampled_g1_qpos() -> None:
-    from motion_gen.ardy.generator import ArdyGenerator
+    from motion_gen.ardy.generator import Ardy
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    generator = ArdyGenerator(
+    generator = Ardy(
         ARDY_CHECKPOINTS_DIR,
         ARDY_ENCODING,
         device=device,
@@ -70,7 +70,7 @@ def test_real_checkpoints_generate_action_and_motion() -> None:
     assert bool(torch.isfinite(action).all())
     assert not completed
 
-    planner = PlannerSonicGenerator(SONIC_DIR / "planner_sonic.onnx")
+    planner = PlannerSonic(SONIC_DIR / "planner_sonic.onnx")
     planner_qpos = planner.generate("walk forward 0.5")
     chunk = resample_motion(
         planner_qpos,

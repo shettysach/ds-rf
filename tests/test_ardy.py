@@ -57,7 +57,7 @@ def test_ardy_model_loader_receives_a_device_string(
         lambda *args, **kwargs: (torch.zeros((1, 1, 4096)), torch.ones((1, 1))),
     )
 
-    ardy_generator.ArdyGenerator(tmp_path, tmp_path / "encoding.pt", device="cuda:0")
+    ardy_generator.Ardy(tmp_path, tmp_path / "encoding.pt", device="cuda:0")
 
     assert received["device"] == "cuda:0"
 
@@ -93,7 +93,7 @@ def test_ardy_history_conditions_generation_but_is_not_returned() -> None:
     converter = Mock()
     converter.dict_to_qpos.return_value = np.zeros((1, 125, 36), dtype=np.float32)
 
-    generator = ardy_generator.ArdyGenerator.__new__(ardy_generator.ArdyGenerator)
+    generator = ardy_generator.Ardy.__new__(ardy_generator.Ardy)
     generator.device = torch.device("cpu")
     generator.model = model
     generator.converter = converter

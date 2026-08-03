@@ -12,7 +12,7 @@ from shared.onnx import create_onnx_session
 PLANNER_CONTEXT_FRAMES = 4
 
 
-class PlannerSonicGenerator:
+class PlannerSonic:
     """Text-to-motion wrapper for NVIDIA's G1 kinematic planner."""
 
     fps = 30
