@@ -40,6 +40,7 @@ def test_ardy_dataflow_wires_encoder_between_agent_and_motion_gen() -> None:
     assert nodes["text-encoder"]["env"]["DSRF_TEXT_ENCODER_MODEL"] == (
         "${DSRF_TEXT_ENCODER_MODEL:-/tmp/model}"
     )
+    assert nodes["agent"]["env"]["DSRF_VLM_USER_PROMPT"] == "prompt/ARDY_USER.md"
     assert nodes["motion-gen"]["inputs"] == {
         "encoded_command": "text-encoder/encoded_command"
     }

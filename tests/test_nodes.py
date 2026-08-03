@@ -93,23 +93,24 @@ def test_motion_gen_generates_one_segment_per_command(monkeypatch) -> None:
 
     node = _run_motion_gen(
         monkeypatch,
-        [_command_event(4, "walk forward 0.4")],
+        [_command_event(4, '{"motion":"walk","direction":"forward"}')],
         generate,
     )
 
     motions = [output for output in node.outputs if output[0] == "motion"]
-    assert generated == ["walk forward 0.4"]
+    assert generated == ['{"motion":"walk","direction":"forward"}']
     assert len(motions) == 1
     _, value, kwargs = motions[0]
     chunk = motion_from_arrow(value, kwargs["metadata"])
     assert chunk.observation_id == 4
-    assert chunk.command == "walk forward 0.4"
+    assert chunk.command == '{"motion":"walk","direction":"forward"}'
     assert any("motion generated" in message for _, message, _ in node.logs)
 
 
 def test_motion_gen_reports_invalid_raw_vlm_response(monkeypatch) -> None:
     def generate(text):
-        raise ValueError(f"Unknown planner_sonic mode {text.split()[0].lower()!r}")
+        del text
+        raise ValueError("Command must be a JSON object")
 
     node = _run_motion_gen(
         monkeypatch,
@@ -122,7 +123,7 @@ def test_motion_gen_reports_invalid_raw_vlm_response(monkeypatch) -> None:
     error = pipeline_error_from_arrow(errors[0][1])
     assert error.source == "motion-gen"
     assert error.observation_id == 5
-    assert "Unknown planner_sonic mode" in error.detail
+    assert "Command must be a JSON object" in error.detail
 
 
 def test_motion_gen_does_not_swallow_planner_errors(monkeypatch) -> None:
@@ -132,7 +133,7 @@ def test_motion_gen_does_not_swallow_planner_errors(monkeypatch) -> None:
     with pytest.raises(KeyError, match="unexpected"):
         _run_motion_gen(
             monkeypatch,
-            [_command_event(0, "walk forward")],
+            [_command_event(0, '{"motion":"walk","direction":"forward"}')],
             generate,
         )
 

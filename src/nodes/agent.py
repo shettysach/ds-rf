@@ -16,7 +16,7 @@ from shared.messages import (
 )
 
 MAX_INVALID_RESPONSES = 3
-FALLBACK_COMMAND = "stand"
+FALLBACK_COMMAND = '{"motion":"stand","direction":"forward"}'
 
 
 class AgentLoop:

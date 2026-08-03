@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass
 from enum import IntEnum
@@ -47,6 +48,14 @@ class PlannerSonicInput:
     random_seed: int = 1234
 
 
+@dataclass(frozen=True)
+class PlannerCommand:
+    """Validated VLM command before conversion to planner_sonic inputs."""
+
+    motion: str
+    direction: str
+
+
 _DIAGONAL = 1.0 / math.sqrt(2.0)
 
 _MOTION_MODES: dict[str, PlannerMode] = {
@@ -76,15 +85,10 @@ _STATIONARY_MODES = {
     PlannerMode.LYING_FACEDOWN,
     PlannerMode.IDLE_BOXING,
 }
-_OPTIONS = {"facing", "speed", "height"}
-
-
 def parse_motion_command(text: str) -> PlannerSonicInput:
-    fields = text.strip().lower().replace("_", "-").split()
-    if not fields:
-        raise ValueError("Command is empty")
-
-    requested_mode, *arguments = fields
+    """Parse the VLM's JSON command into planner_sonic's ONNX inputs."""
+    command = _parse_vlm_command(text)
+    requested_mode = command.motion
     mode = _MODE_ALIASES.get(requested_mode)
     if mode is None:
         try:
@@ -96,72 +100,52 @@ def parse_motion_command(text: str) -> PlannerSonicInput:
                 f"expected one of: {choices}"
             ) from exc
 
-    options: dict[str, str] = {}
-    positionals: list[str] = []
-    for argument in arguments:
-        if "=" not in argument:
-            positionals.append(argument)
-            continue
-        name, value = argument.split("=", 1)
-        if name not in _OPTIONS:
-            raise ValueError(f"Unknown command option: {name!r}")
-        if name in options:
-            raise ValueError(f"{name.capitalize()} was provided more than once")
-        options[name] = value
-
-    direction: Vector3 | None = None
-    speed: str | None = options.get("speed")
-    for value in positionals:
-        if direction is None and value in _MOTION_DIRECTIONS:
-            direction = _MOTION_DIRECTIONS[value]
-        elif speed is None:
-            speed = value
-        else:
-            raise ValueError(f"Unexpected command field: {value}")
-
-    facing_name = options.get("facing", "forward")
     try:
-        facing = _MOTION_DIRECTIONS[facing_name]
+        direction = _MOTION_DIRECTIONS[command.direction]
     except KeyError as exc:
-        raise ValueError(f"Unknown facing direction: {facing_name!r}") from exc
+        choices = ", ".join(_MOTION_DIRECTIONS)
+        raise ValueError(
+            f"Unknown planner_sonic direction {command.direction!r}; "
+            f"expected one of: {choices}"
+        ) from exc
 
     movement = (0.0, 0.0, 0.0)
     if mode not in _STATIONARY_MODES:
-        movement = _MOTION_DIRECTIONS["forward"]
-    if direction is not None:
         movement = direction
     return PlannerSonicInput(
         mode=mode,
         movement_direction=movement,
-        facing_direction=facing,
-        target_vel=_positive_float(speed, "Speed") if speed is not None else -1.0,
-        height=(
-            _nonnegative_float(options["height"], "Height")
-            if "height" in options
-            else -1.0
-        ),
+        facing_direction=_MOTION_DIRECTIONS["forward"],
     )
 
 
-def _positive_float(value: str, label: str) -> float:
-    parsed = _finite_float(value, label)
-    if parsed <= 0.0:
-        raise ValueError(f"{label} must be positive")
-    return parsed
-
-
-def _nonnegative_float(value: str, label: str) -> float:
-    parsed = _finite_float(value, label)
-    if parsed < 0.0:
-        raise ValueError(f"{label} must be non-negative")
-    return parsed
-
-
-def _finite_float(value: str, label: str) -> float:
+def _parse_vlm_command(text: str) -> PlannerCommand:
+    if not text.strip():
+        raise ValueError("Command is empty")
     try:
-        parsed = float(value)
-    except ValueError as exc:
-        raise ValueError(f"{label} must be a number") from exc
-    if not math.isfinite(parsed):
-        raise ValueError(f"{label} must be finite")
-    return parsed
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError("Command must be a JSON object") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("Command must be a JSON object")
+
+    expected_fields = {"motion", "direction"}
+    if set(payload) != expected_fields:
+        missing = expected_fields.difference(payload)
+        unexpected = set(payload).difference(expected_fields)
+        details: list[str] = []
+        if missing:
+            details.append(f"missing fields: {', '.join(sorted(missing))}")
+        if unexpected:
+            details.append(f"unexpected fields: {', '.join(sorted(unexpected))}")
+        raise ValueError(f"Command must contain only motion and direction ({'; '.join(details)})")
+
+    motion = payload["motion"]
+    direction = payload["direction"]
+    if not isinstance(motion, str) or not isinstance(direction, str):
+        raise ValueError("Command motion and direction must be strings")
+    motion = motion.strip().lower().replace("_", "-")
+    direction = direction.strip().lower().replace("_", "-")
+    if not motion or not direction:
+        raise ValueError("Command motion and direction must not be empty")
+    return PlannerCommand(motion=motion, direction=direction)

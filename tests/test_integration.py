@@ -39,12 +39,12 @@ def test_real_checkpoints_generate_action_and_motion() -> None:
     assert not completed
 
     planner = PlannerSonic(SONIC_DIR / "planner_sonic.onnx")
-    planner_qpos = planner.generate("walk forward 0.5")
+    planner_qpos = planner.generate('{"motion":"walk","direction":"forward"}')
     chunk = resample_motion(
         planner_qpos,
         source_fps=planner.fps,
         observation_id=0,
-        command="walk forward 0.5",
+        command='{"motion":"walk","direction":"forward"}',
     )
     assert 24 <= planner_qpos.shape[0] <= 64
     assert planner_qpos.shape[0] % 4 == 0

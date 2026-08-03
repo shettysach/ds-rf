@@ -146,7 +146,7 @@ def test_agent_retries_three_invalid_responses_then_stands() -> None:
         "invalid one",
         "invalid two",
         "invalid three",
-        "stand",
+        '{"motion":"stand","direction":"forward"}',
     ]
     assert client.feedback[0] is None
     assert all(feedback is not None for feedback in client.feedback[1:])
@@ -158,7 +158,7 @@ def test_agent_retries_three_invalid_responses_then_stands() -> None:
     assert vlm_messages[1].endswith("retry=1")
     assert "[OBS 0] VLM command: 'invalid three'" in vlm_messages[2]
     assert vlm_messages[2].endswith("retry=2")
-    assert any("fallback command: 'stand'" in message for _, message, _ in node.logs)
+    assert any("fallback command: '{\"motion\":\"stand\",\"direction\":\"forward\"}'" in message for _, message, _ in node.logs)
 
 
 def test_agent_commits_exact_completed_command() -> None:

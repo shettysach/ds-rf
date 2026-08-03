@@ -5,3 +5,5 @@
     - The normal server invocation already uses one slot (`--parallel 1`, equivalent to `-np 1`) and prompt caching (`--cache-prompt`).
 
 [ ] Per chunk rebasing vs not.
+
+[ ] Integrate text_encoder node functionality into motion_gen

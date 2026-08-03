@@ -1,5 +1,6 @@
 from motion_gen.planner_sonic.generator import PlannerSonic
 from motion_gen.planner_sonic.parser import (
+    PlannerCommand,
     PlannerMode,
     PlannerSonicInput,
     Vector3,
@@ -7,6 +8,7 @@ from motion_gen.planner_sonic.parser import (
 )
 
 __all__ = [
+    "PlannerCommand",
     "PlannerMode",
     "PlannerSonic",
     "PlannerSonicInput",
