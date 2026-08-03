@@ -76,6 +76,11 @@ def make_sonic_env_cfg(
         if task_definition is not None and task_definition.camera_distance is not None
         else 2.0
     )
+    camera_elevation = (
+        task_definition.camera_elevation
+        if task_definition is not None and task_definition.camera_elevation is not None
+        else -15.0
+    )
 
     return ManagerBasedRlEnvCfg(
         decimation=4,
@@ -94,7 +99,7 @@ def make_sonic_env_cfg(
             entity_name="robot",
             body_name="torso_link",
             distance=camera_distance,
-            elevation=-15.0,
+            elevation=camera_elevation,
             azimuth=0.0,
             width=image_width,
             height=image_height,

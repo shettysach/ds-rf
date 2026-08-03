@@ -76,13 +76,6 @@ def make_portrait_corridors_spec_fn(
 
         _add_wall(
             spec,
-            name="portrait_corridors_back_wall",
-            pos=(start_x, 0.0, wall_z),
-            size=(half_wall_thickness, half_total_width, half_wall_height),
-            rgba=wall_rgba,
-        )
-        _add_wall(
-            spec,
             name="portrait_corridors_end_wall",
             pos=(end_x, 0.0, wall_z),
             size=(half_wall_thickness, half_total_width, half_wall_height),

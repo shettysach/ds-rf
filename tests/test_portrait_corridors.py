@@ -11,7 +11,8 @@ def test_catalog_contains_portrait_corridors() -> None:
 
     assert definition is TASKS["portrait-corridors"]
     assert definition.objective == "Stand in front of the image of the cartoon."
-    assert definition.camera_distance == 2.0
+    assert definition.camera_distance == 3.5
+    assert definition.camera_elevation == -30.0
 
 
 def test_catalog_rejects_unknown_task() -> None:
@@ -24,9 +25,11 @@ def test_sonic_config_applies_task_scene_and_camera_distance() -> None:
     plain_cfg = make_sonic_env_cfg(task=None)
 
     assert task_cfg.scene.spec_fn is not None
-    assert task_cfg.viewer.distance == 2.0
+    assert task_cfg.viewer.distance == 3.5
+    assert task_cfg.viewer.elevation == -30.0
     assert plain_cfg.scene.spec_fn is None
     assert plain_cfg.viewer.distance == 2.0
+    assert plain_cfg.viewer.elevation == -15.0
 
 
 def test_sonic_config_uses_third_person_torso_camera() -> None:
@@ -53,7 +56,7 @@ def test_portrait_corridors_spec_adds_portraits_walls_and_cameras() -> None:
         "portrait_corridors_karpathy_texture",
         "portrait_corridors_bugs_texture",
     }
-    assert len([body for body in spec.bodies if body.name.endswith("_wall")]) == 6
+    assert len([body for body in spec.bodies if body.name.endswith("_wall")]) == 5
 
     walls = {body.name: body for body in spec.bodies if body.name.endswith("_wall")}
     assert tuple(walls["portrait_corridors_end_wall"].geoms[0].rgba) == (
@@ -62,12 +65,7 @@ def test_portrait_corridors_spec_adds_portraits_walls_and_cameras() -> None:
         0.0,
         1.0,
     )
-    assert tuple(walls["portrait_corridors_back_wall"].geoms[0].rgba) == (
-        0.5,
-        0.5,
-        0.5,
-        1.0,
-    )
+    assert "portrait_corridors_back_wall" not in walls
 
     cameras = {camera.name: camera for camera in spec.cameras}
     assert set(cameras) == {"corridor_left", "corridor_center", "corridor_right"}

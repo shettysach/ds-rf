@@ -18,13 +18,15 @@ class TaskDefinition:
     objective: str
     make_spec_fn: Callable[[], SpecFn]
     camera_distance: float | None = None
+    camera_elevation: float | None = None
 
 
 TASKS: dict[TaskName, TaskDefinition] = {
     "portrait-corridors": TaskDefinition(
         objective="Stand in front of the image of the cartoon.",
         make_spec_fn=make_portrait_corridors_spec_fn,
-        camera_distance=2.0,  # Keep the tracking camera inside the back wall at x=-2.
+        camera_distance=3.5,
+        camera_elevation=-30.0,
     ),
 }
 
