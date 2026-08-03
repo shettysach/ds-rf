@@ -54,8 +54,8 @@ generates a five-second reference, and carries ARDY's generated history into the
 next request:
 
 ```bash
-export DSRF_TEXT_ENCODER_MODEL=/path/to/local/model
-export CHECKPOINTS_DIR=/path/to/ardy/checkpoints
+export DSRF_TEXT_ENCODER_MODEL=~/Desktop/encoding/model/
+export CHECKPOINTS_DIR=/tmp/checkpoints/
 dora run ardy.yml
 ```
 

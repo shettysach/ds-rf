@@ -20,6 +20,7 @@ dependencies = [
 ardy = [
     "accelerate>=1.0",
     "ardy",
+    "bitsandbytes>=0.50.0",
     "transformers>=4.51",
 ]
 cpu = [
