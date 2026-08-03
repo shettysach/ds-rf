@@ -17,6 +17,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+ardy = [
+    "ardy",
+]
 cpu = [
     "mjlab",
     "onnxruntime>=1.23.0,<1.27.0",
@@ -32,6 +35,7 @@ cu128 = [
 
 [project.scripts]
 dsrf-agent = "nodes.agent:main"
+dsrf-ardy-smoketest = "nodes.ardy_smoketest:main"
 dsrf-motion-gen = "nodes.motion_gen:main"
 dsrf-sonic = "nodes.sonic:main"
 
@@ -48,6 +52,7 @@ conflicts = [
 ]
 
 [tool.uv.sources]
+ardy = { git = "https://github.com/shettysach/ardy", branch = "main" }
 mjlab = { git = "https://github.com/mujocolab/mjlab", rev = "15ebce8840ee2205f4c62d0c20df65dd1794cab4" }
 warp-lang = { index = "nvidia", marker = "sys_platform != 'darwin'" }
 torch = [

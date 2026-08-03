@@ -1,5 +1,7 @@
+import os
 from pathlib import Path
 
+import numpy as np
 import onnxruntime as ort
 import pytest
 import torch
@@ -12,11 +14,41 @@ from sonic.policy import SonicPolicy
 from sonic.renderer import SonicRenderer
 
 SONIC_DIR = Path("/tmp/GEAR-SONIC")
+ARDY_CHECKPOINTS_DIR = Path(os.environ.get("CHECKPOINTS_DIR", "/missing"))
+ARDY_ENCODING = Path(os.environ.get("ENCODING", "/missing"))
 
 pytestmark = pytest.mark.integration
 CUDA_READY = torch.cuda.is_available() and "CUDAExecutionProvider" in (
     ort.get_available_providers()
 )
+
+
+@pytest.mark.skipif(
+    not ARDY_CHECKPOINTS_DIR.is_dir() or not ARDY_ENCODING.is_file(),
+    reason="ARDY checkpoint or fixed encoding is unavailable",
+)
+def test_real_ardy_checkpoint_generates_resampled_g1_qpos() -> None:
+    from motion_gen.ardy.generator import ArdyGenerator
+
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    generator = ArdyGenerator(
+        ARDY_CHECKPOINTS_DIR,
+        ARDY_ENCODING,
+        device=device,
+    )
+
+    qpos = generator.generate("ignored smoke-test text")
+    chunk = resample_motion(
+        qpos,
+        source_fps=generator.fps,
+        observation_id=0,
+        command="ardy smoke test",
+    )
+
+    assert qpos.ndim == 2
+    assert qpos.shape[1] == 36
+    assert np.isfinite(qpos).all()
+    assert chunk.qpos.shape == (qpos.shape[0] * 2, 36)
 
 
 @pytest.mark.skipif(not SONIC_DIR.is_dir(), reason="SONIC bundle is unavailable")

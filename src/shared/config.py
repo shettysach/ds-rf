@@ -6,21 +6,31 @@ from pathlib import Path
 from typing import Literal
 
 type ViewerMode = Literal["none", "native"]
-type MotionGeneratorName = Literal["planner_sonic"]
+type MotionGeneratorName = Literal["planner_sonic", "ardy"]
 
 
 @dataclass(frozen=True)
 class MotionGenConfig:
     generator: MotionGeneratorName
-    planner_onnx: Path
     device: str
+    planner_onnx: Path | None = None
+    ardy_checkpoints_dir: Path | None = None
+    encoding: Path | None = None
 
     @classmethod
     def from_env(cls) -> "MotionGenConfig":
+        generator = _motion_generator()
+        if generator == "ardy":
+            return cls(
+                generator=generator,
+                device=os.environ["DSRF_DEVICE"],
+                ardy_checkpoints_dir=Path(os.environ["CHECKPOINTS_DIR"]),
+                encoding=Path(os.environ["ENCODING"]),
+            )
         return cls(
-            generator=_motion_generator(),
-            planner_onnx=Path(os.environ["DSRF_PLANNER_ONNX"]),
+            generator=generator,
             device=os.environ["DSRF_DEVICE"],
+            planner_onnx=Path(os.environ["DSRF_PLANNER_ONNX"]),
         )
 
 
@@ -98,10 +108,9 @@ def _viewer_mode() -> ViewerMode:
 
 def _motion_generator() -> MotionGeneratorName:
     value = os.environ["DSRF_MOTION_GENERATOR"].strip().lower()
-    if value != "planner_sonic":
+    if value not in {"planner_sonic", "ardy"}:
         raise ValueError(
-            "DSRF_MOTION_GENERATOR must be 'planner_sonic' until another "
-            "motion backend is installed"
+            "DSRF_MOTION_GENERATOR must be 'planner_sonic' or 'ardy'"
         )
     return value
 

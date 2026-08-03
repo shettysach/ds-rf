@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import time
+from typing import Protocol
 
+import numpy as np
 from dora import Node
 
 from motion_gen.planner_sonic import PlannerSonicGenerator
@@ -16,12 +18,33 @@ from shared.messages import (
 )
 
 
+class MotionGenerator(Protocol):
+    fps: int
+
+    def generate(self, text: str) -> np.ndarray: ...
+
+
+def _create_generator(cfg: MotionGenConfig) -> MotionGenerator:
+    if cfg.generator == "ardy":
+        from motion_gen.ardy.generator import ArdyGenerator
+
+        if cfg.ardy_checkpoints_dir is None or cfg.encoding is None:
+            raise ValueError("ARDY configuration is incomplete")
+        return ArdyGenerator(
+            cfg.ardy_checkpoints_dir,
+            cfg.encoding,
+            device=cfg.device,
+        )
+
+    if cfg.planner_onnx is None:
+        raise ValueError("planner_sonic configuration is incomplete")
+    return PlannerSonicGenerator(cfg.planner_onnx, device=cfg.device)
+
+
 def main() -> None:
     cfg = MotionGenConfig.from_env()
     node = Node()
-    if cfg.generator != "planner_sonic":
-        raise ValueError(f"Unsupported motion generator: {cfg.generator!r}")
-    generator = PlannerSonicGenerator(cfg.planner_onnx, device=cfg.device)
+    generator = _create_generator(cfg)
 
     for event in node:
         if event["type"] == "STOP":

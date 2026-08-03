@@ -46,3 +46,19 @@ dora run dataflow.yml
 - Set `DSRF_VIEWER=none` to disable the window for headless runs.
 - Set `DSRF_REFERENCE_GHOST=true` to show the active motion reference in the
   native viewer.
+
+## ARDY smoke test
+
+The ARDY smoke graph skips the agent and sends one fixed-encoding motion to
+SONIC after the simulator publishes its initial observation:
+
+```bash
+export DSRF_MOTION_GENERATOR=ardy
+export CHECKPOINTS_DIR=/path/to/ardy/checkpoints
+export ENCODING=~/Videos/walk_forward.pt
+dora run ardy_smoketest.yml
+```
+
+`CHECKPOINTS_DIR` must contain `ARDY-G1-RP-25FPS-Horizon52`. The smoke graph
+uses the `cu128` and experimental `ardy` extras and defaults `DSRF_DEVICE` to
+`cuda:0`.

@@ -32,3 +32,18 @@ def test_runtime_environment_is_scoped_to_consuming_nodes() -> None:
         "DSRF_VIEWER": "${DSRF_VIEWER:-native}",
         "DSRF_REFERENCE_GHOST": "${DSRF_REFERENCE_GHOST:-false}",
     }
+
+
+def test_ardy_smoketest_dataflow_has_no_agent() -> None:
+    descriptor = yaml.safe_load(Path("ardy_smoketest.yml").read_text())
+    nodes = {node["id"]: node for node in descriptor["nodes"]}
+
+    assert set(nodes) == {"ardy-smoketest", "motion-gen", "sonic"}
+    assert nodes["motion-gen"]["env"] == {
+        "DSRF_DEVICE": "${DSRF_DEVICE:-cuda:0}",
+        "DSRF_MOTION_GENERATOR": "${DSRF_MOTION_GENERATOR:-ardy}",
+    }
+    assert nodes["motion-gen"]["inputs"] == {
+        "command": "ardy-smoketest/command"
+    }
+    assert nodes["sonic"]["inputs"] == {"motion": "motion-gen/motion"}
