@@ -83,7 +83,7 @@ class MotionReference:
         root_pos_w = self._robot_origin_w + quat_apply(
             self._heading_delta, qpos[:3] - self._reference_origin
         )
-        root_pos_w[2] = qpos[2]
+        root_pos_w[2] = qpos[2]  # NOTE: No Z rebasing, only X Y
         root_quat_w = quat_mul(self._heading_delta, qpos[3:7])
         return root_pos_w, root_quat_w, qpos[7:]
 

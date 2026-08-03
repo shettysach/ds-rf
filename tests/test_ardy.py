@@ -1,10 +1,15 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 import torch
+from ardy.exports.mujoco import MujocoQposConverter
+from ardy.skeleton import G1Skeleton34
 
 from motion_gen.ardy.encoding import load_conditioning
+from motion_gen.ardy.history import qpos_to_ardy_inputs
+from shared.g1 import standing_qpos
 
 
 def test_load_ardy_conditioning(tmp_path: Path) -> None:
@@ -30,6 +35,7 @@ def test_ardy_model_loader_receives_a_device_string(monkeypatch, tmp_path: Path)
     model = SimpleNamespace(
         motion_rep=SimpleNamespace(fps=25),
         skeleton=object(),
+        num_frames_per_token=4,
     )
     monkeypatch.setattr(
         ardy_generator,
@@ -39,6 +45,11 @@ def test_ardy_model_loader_receives_a_device_string(monkeypatch, tmp_path: Path)
     monkeypatch.setattr(ardy_generator, "MujocoQposConverter", lambda _: object())
     monkeypatch.setattr(
         ardy_generator,
+        "build_initial_history",
+        lambda *args, **kwargs: torch.zeros((1, 4, 1)),
+    )
+    monkeypatch.setattr(
+        ardy_generator,
         "load_conditioning",
         lambda *args, **kwargs: (torch.zeros((1, 1, 4096)), torch.ones((1, 1))),
     )
@@ -46,6 +57,26 @@ def test_ardy_model_loader_receives_a_device_string(monkeypatch, tmp_path: Path)
     ardy_generator.ArdyGenerator(tmp_path, tmp_path / "encoding.pt", device="cuda:0")
 
     assert received["device"] == "cuda:0"
+
+
+def test_standing_qpos_round_trips_through_ardy_inputs() -> None:
+    converter = MujocoQposConverter(G1Skeleton34())
+    expected = np.repeat(standing_qpos()[None], 4, axis=0)
+
+    local_rot_mats, root_positions = qpos_to_ardy_inputs(
+        expected,
+        converter,
+        device=torch.device("cpu"),
+    )
+    restored = converter.dict_to_qpos(
+        {
+            "local_rot_mats": local_rot_mats,
+            "root_positions": root_positions,
+        },
+        "cpu",
+    )
+
+    np.testing.assert_allclose(restored[0], expected, atol=1e-5)
 
 
 @pytest.mark.parametrize("shape", [(4096,), (1, 1, 4096), (2, 4096)])

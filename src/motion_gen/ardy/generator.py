@@ -9,6 +9,8 @@ from ardy.model import load_model
 from ardy.motion_rep.tools import length_to_mask
 
 from motion_gen.ardy.encoding import load_conditioning
+from motion_gen.ardy.history import build_initial_history
+from shared.g1 import standing_qpos
 
 
 class ArdyGenerator:
@@ -38,10 +40,18 @@ class ArdyGenerator:
             device=self.device,
         )
         self.converter = MujocoQposConverter(self.model.skeleton)
+        history_frames = int(self.model.num_frames_per_token)
+        standing_history = np.repeat(standing_qpos()[None], history_frames, axis=0)
+        self.initial_history = build_initial_history(
+            standing_history,
+            self.converter,
+            self.model.motion_rep,
+            device=self.device,
+        )
 
     def generate(self, text: str) -> np.ndarray:
         del text  # The smoke test always uses the fixed ENCODING tensor.
-        num_frames = int(self.model.gen_horizon_len)
+        num_frames = int(self.model.gen_horizon_len) + self.initial_history.shape[1]
         lengths = torch.tensor([num_frames], device=self.device)
 
         with torch.inference_mode():
@@ -49,13 +59,14 @@ class ArdyGenerator:
                 num_frames,
                 num_denoising_steps=int(self.model.diffusion.num_base_steps),
                 pad_mask=length_to_mask(lengths),
-                first_heading_angle=torch.zeros(1, device=self.device),
+                first_heading_angle=None,
                 motion_mask=None,
                 observed_motion=None,
                 text_feat=self.text_feat,
                 text_pad_mask=self.text_pad_mask,
                 cfg_weight=(2.0, 2.0),
                 progress_bar=lambda iterable: iterable,
+                init_history_sequence=self.initial_history,
             )
             decoded = self.model.motion_rep.inverse(motion, is_normalized=True)
             batched_qpos = self.converter.dict_to_qpos(
