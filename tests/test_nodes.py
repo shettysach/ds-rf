@@ -47,19 +47,23 @@ def _command_event(observation_id: int, text: str) -> dict[str, object]:
     }
 
 
-def _run_motion_gen(monkeypatch, events, generate):
+def _run_motion_gen(
+    monkeypatch,
+    events,
+    generate,
+    *,
+    generator_name="planner_sonic",
+):
     node = _Node(events)
     generator = SimpleNamespace(generate=generate, fps=30)
     config = SimpleNamespace(
-        generator="planner_sonic",
+        generator=generator_name,
         device="cpu",
         planner_onnx=Path("planner.onnx"),
     )
     monkeypatch.setattr(motion_gen_node.MotionGenConfig, "from_env", lambda: config)
     monkeypatch.setattr(motion_gen_node, "Node", lambda: node)
-    monkeypatch.setattr(
-        motion_gen_node, "PlannerSonicGenerator", lambda *args, **kwargs: generator
-    )
+    monkeypatch.setattr(motion_gen_node, "_create_generator", lambda cfg: generator)
     motion_gen_node.main()
     return node
 
@@ -91,6 +95,19 @@ def test_motion_gen_generates_one_segment_per_command(monkeypatch) -> None:
     assert chunk.observation_id == 4
     assert chunk.command == "walk forward 0.4"
     assert any("motion generated" in message for _, message, _ in node.logs)
+
+
+def test_motion_gen_preserves_ardy_root_z(monkeypatch) -> None:
+    node = _run_motion_gen(
+        monkeypatch,
+        [_command_event(4, "ardy smoke test")],
+        lambda text: _planner_motion(),
+        generator_name="ardy",
+    )
+
+    motion = next(output for output in node.outputs if output[0] == "motion")
+    chunk = motion_from_arrow(motion[1], motion[2]["metadata"])
+    assert chunk.preserve_root_z
 
 
 def test_motion_gen_reports_invalid_raw_vlm_response(monkeypatch) -> None:

@@ -21,11 +21,13 @@ def test_motion_arrow_round_trip() -> None:
         7,
         "walk forward 0.4",
         np.arange(72, dtype=np.float32).reshape(2, 36),
+        preserve_root_z=True,
     )
     value, metadata = motion_to_arrow(chunk)
     restored = motion_from_arrow(value, metadata)
     assert restored.observation_id == 7
     assert restored.command == "walk forward 0.4"
+    assert restored.preserve_root_z
     np.testing.assert_array_equal(restored.qpos, chunk.qpos)
 
 

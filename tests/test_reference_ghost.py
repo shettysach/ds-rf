@@ -9,13 +9,18 @@ from sonic.policy import MotionReference
 from sonic.reference_ghost import SonicReferenceGhost
 
 
-def _motion() -> MotionChunk:
+def _motion(*, preserve_root_z: bool = False) -> MotionChunk:
     qpos = np.zeros((2, 36), dtype=np.float32)
     qpos[:, 3] = 1.0
     qpos[0, :3] = [1.0, 2.0, 0.8]
     qpos[1, :3] = [2.0, 2.0, 0.8]
     qpos[1, 7:] = np.arange(29)
-    return MotionChunk(0, "walk forward", qpos)
+    return MotionChunk(
+        0,
+        "walk forward",
+        qpos,
+        preserve_root_z=preserve_root_z,
+    )
 
 
 def test_reference_visualization_pose_is_aligned_and_advances() -> None:
@@ -42,6 +47,27 @@ def test_reference_visualization_pose_is_aligned_and_advances() -> None:
 
     assert reference.advance()
     assert reference.visualization_pose() is None
+
+
+def test_reference_preserves_generated_root_z_when_requested() -> None:
+    motion = _motion(preserve_root_z=True)
+    motion.qpos[0, 2] = 0.5
+    motion.qpos[1, 2] = 0.45
+    reference = MotionReference(torch.device("cpu"))
+    reference.load(
+        motion,
+        robot_pos_w=torch.tensor([10.0, 20.0, 0.8]),
+        robot_quat_w=torch.tensor([1.0, 0.0, 0.0, 0.0]),
+    )
+
+    initial = reference.visualization_pose()
+    assert initial is not None
+    np.testing.assert_allclose(initial[0].numpy(), [10.0, 20.0, 0.5])
+
+    assert not reference.advance()
+    current = reference.visualization_pose()
+    assert current is not None
+    np.testing.assert_allclose(current[0].numpy(), [11.0, 20.0, 0.45])
 
 
 class _RecordingVisualizer:
