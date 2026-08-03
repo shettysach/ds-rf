@@ -10,6 +10,7 @@ import torch
 
 import nodes.motion_gen as motion_gen_node
 import sonic.runtime as sonic_runtime
+from shared.config import PlannerSonicConfig
 from shared.messages import (
     AgentCommand,
     MotionChunk,
@@ -50,15 +51,14 @@ def _command_event(observation_id: int, text: str) -> dict[str, object]:
 def _run_motion_gen(monkeypatch, events, generate):
     node = _Node(events)
     generator = SimpleNamespace(generate=generate, fps=30)
-    config = SimpleNamespace(
-        generator="planner_sonic",
+    config = motion_gen_node.MotionGenConfig(
         device="cpu",
-        planner_onnx=Path("planner.onnx"),
+        backend=PlannerSonicConfig(planner_onnx=Path("planner.onnx")),
     )
     monkeypatch.setattr(motion_gen_node.MotionGenConfig, "from_env", lambda: config)
     monkeypatch.setattr(motion_gen_node, "Node", lambda: node)
     monkeypatch.setattr(
-        motion_gen_node, "PlannerSonicGenerator", lambda *args, **kwargs: generator
+        motion_gen_node, "PlannerSonic", lambda *args, **kwargs: generator
     )
     motion_gen_node.main()
     return node

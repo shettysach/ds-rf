@@ -2,7 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from shared.config import AgentConfig, MotionGenConfig, SonicConfig
+from shared.config import (
+    AgentConfig,
+    ArdyConfig,
+    MotionGenConfig,
+    PlannerSonicConfig,
+    SonicConfig,
+)
 
 
 def test_motion_gen_config_from_env(monkeypatch) -> None:
@@ -11,9 +17,8 @@ def test_motion_gen_config_from_env(monkeypatch) -> None:
     monkeypatch.setenv("DSRF_PLANNER_ONNX", "/models/planner.onnx")
 
     assert MotionGenConfig.from_env() == MotionGenConfig(
-        generator="planner_sonic",
         device="cuda:0",
-        planner_onnx=Path("/models/planner.onnx"),
+        backend=PlannerSonicConfig(planner_onnx=Path("/models/planner.onnx")),
     )
 
 
@@ -24,10 +29,11 @@ def test_ardy_motion_gen_config_from_env(monkeypatch) -> None:
     monkeypatch.setenv("ENCODING", "/encodings/walk_forward.pt")
 
     assert MotionGenConfig.from_env() == MotionGenConfig(
-        generator="ardy",
         device="cpu",
-        ardy_checkpoints_dir=Path("/models/ardy"),
-        encoding=Path("/encodings/walk_forward.pt"),
+        backend=ArdyConfig(
+            checkpoints_dir=Path("/models/ardy"),
+            encoding=Path("/encodings/walk_forward.pt"),
+        ),
     )
 
 

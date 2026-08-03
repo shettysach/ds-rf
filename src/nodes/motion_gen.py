@@ -8,7 +8,7 @@ from dora import Node
 
 from motion_gen.planner_sonic import PlannerSonic
 from motion_gen.resample import resample_motion
-from shared.config import MotionGenConfig
+from shared.config import ArdyConfig, MotionGenConfig, PlannerSonicConfig
 from shared.messages import (
     SONIC_FPS,
     PipelineError,
@@ -25,20 +25,16 @@ class MotionGenerator(Protocol):
 
 
 def _create_generator(cfg: MotionGenConfig) -> MotionGenerator:
-    if cfg.generator == "ardy":
-        from motion_gen.ardy.generator import Ardy
+    match cfg.backend:
+        case ArdyConfig():
+            from motion_gen.ardy.generator import Ardy
 
-        if cfg.ardy_checkpoints_dir is None or cfg.encoding is None:
-            raise ValueError("ARDY configuration is incomplete")
-        return Ardy(
-            cfg.ardy_checkpoints_dir,
-            cfg.encoding,
-            device=cfg.device,
-        )
-    else:  # planner_sonic
-        if cfg.planner_onnx is None:
-            raise ValueError("planner_sonic configuration is incomplete")
-        return PlannerSonic(cfg.planner_onnx, device=cfg.device)
+            return Ardy(
+                cfg.backend.checkpoints_dir, cfg.backend.encoding, device=cfg.device
+            )
+
+        case PlannerSonicConfig():
+            return PlannerSonic(cfg.backend.planner_onnx, device=cfg.device)
 
 
 def main() -> None:

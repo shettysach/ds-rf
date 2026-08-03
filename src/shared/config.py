@@ -6,32 +6,41 @@ from pathlib import Path
 from typing import Literal
 
 type ViewerMode = Literal["none", "native"]
-type MotionGeneratorName = Literal["planner_sonic", "ardy"]
 
 
 @dataclass(frozen=True)
 class MotionGenConfig:
-    generator: MotionGeneratorName
     device: str
-    planner_onnx: Path | None = None
-    ardy_checkpoints_dir: Path | None = None
-    encoding: Path | None = None
+    backend: PlannerSonicConfig | ArdyConfig
 
     @classmethod
     def from_env(cls) -> "MotionGenConfig":
         generator = _motion_generator()
         if generator == "ardy":
             return cls(
-                generator=generator,
                 device=os.environ["DSRF_DEVICE"],
-                ardy_checkpoints_dir=Path(os.environ["CHECKPOINTS_DIR"]),
-                encoding=Path(os.environ["ENCODING"]),
+                backend=ArdyConfig(
+                    checkpoints_dir=Path(os.environ["CHECKPOINTS_DIR"]),
+                    encoding=Path(os.environ["ENCODING"]),
+                ),
             )
         return cls(
-            generator=generator,
             device=os.environ["DSRF_DEVICE"],
-            planner_onnx=Path(os.environ["DSRF_PLANNER_ONNX"]),
+            backend=PlannerSonicConfig(
+                planner_onnx=Path(os.environ["DSRF_PLANNER_ONNX"]),
+            ),
         )
+
+
+@dataclass(frozen=True)
+class PlannerSonicConfig:
+    planner_onnx: Path
+
+
+@dataclass(frozen=True)
+class ArdyConfig:
+    checkpoints_dir: Path
+    encoding: Path
 
 
 @dataclass(frozen=True)
@@ -106,12 +115,10 @@ def _viewer_mode() -> ViewerMode:
     return value
 
 
-def _motion_generator() -> MotionGeneratorName:
+def _motion_generator() -> Literal["planner_sonic", "ardy"]:
     value = os.environ["DSRF_MOTION_GENERATOR"].strip().lower()
     if value not in {"planner_sonic", "ardy"}:
-        raise ValueError(
-            "DSRF_MOTION_GENERATOR must be 'planner_sonic' or 'ardy'"
-        )
+        raise ValueError("DSRF_MOTION_GENERATOR must be 'planner_sonic' or 'ardy'")
     return value
 
 
