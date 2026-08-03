@@ -82,7 +82,6 @@ def main() -> None:
                 source_fps=generator.fps,
                 observation_id=request.observation_id,
                 command=request.text,
-                preserve_root_z=cfg.generator == "ardy",
             )
         except Exception as exc:
             plan_ms = (time.perf_counter() - started_at) * 1000.0

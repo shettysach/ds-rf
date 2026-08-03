@@ -9,18 +9,13 @@ from sonic.policy import MotionReference
 from sonic.reference_ghost import SonicReferenceGhost
 
 
-def _motion(*, preserve_root_z: bool = False) -> MotionChunk:
+def _motion() -> MotionChunk:
     qpos = np.zeros((2, 36), dtype=np.float32)
     qpos[:, 3] = 1.0
     qpos[0, :3] = [1.0, 2.0, 0.8]
     qpos[1, :3] = [2.0, 2.0, 0.8]
     qpos[1, 7:] = np.arange(29)
-    return MotionChunk(
-        0,
-        "walk forward",
-        qpos,
-        preserve_root_z=preserve_root_z,
-    )
+    return MotionChunk(0, "walk forward", qpos)
 
 
 def test_reference_visualization_pose_is_aligned_and_advances() -> None:
@@ -49,8 +44,8 @@ def test_reference_visualization_pose_is_aligned_and_advances() -> None:
     assert reference.visualization_pose() is None
 
 
-def test_reference_preserves_generated_root_z_when_requested() -> None:
-    motion = _motion(preserve_root_z=True)
+def test_reference_preserves_generated_root_z() -> None:
+    motion = _motion()
     motion.qpos[0, 2] = 0.5
     motion.qpos[1, 2] = 0.45
     reference = MotionReference(torch.device("cpu"))

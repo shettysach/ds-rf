@@ -37,7 +37,6 @@ class MotionReference:
         )
         self._robot_origin_w = torch.zeros(3, dtype=torch.float32, device=device)
         self._reference_origin = torch.zeros(3, dtype=torch.float32, device=device)
-        self._preserve_root_z = False
         self._sonic_from_mjlab = torch.as_tensor(
             SONIC_FROM_MJLAB, dtype=torch.long, device=device
         )
@@ -70,7 +69,6 @@ class MotionReference:
         )
         self._robot_origin_w = robot_pos_w.clone()
         self._reference_origin = self._qpos[0, :3].clone()
-        self._preserve_root_z = chunk.preserve_root_z
         self._frame = 0
         self._active = True
 
@@ -85,8 +83,7 @@ class MotionReference:
         root_pos_w = self._robot_origin_w + quat_apply(
             self._heading_delta, qpos[:3] - self._reference_origin
         )
-        if self._preserve_root_z:
-            root_pos_w[2] = qpos[2]
+        root_pos_w[2] = qpos[2]
         root_quat_w = quat_mul(self._heading_delta, qpos[3:7])
         return root_pos_w, root_quat_w, qpos[7:]
 

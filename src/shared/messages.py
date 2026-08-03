@@ -16,7 +16,6 @@ class MotionChunk:
     observation_id: int
     command: str
     qpos: np.ndarray
-    preserve_root_z: bool = False
 
     def __post_init__(self) -> None:
         if self.observation_id < 0:
@@ -81,7 +80,6 @@ def motion_to_arrow(chunk: MotionChunk) -> tuple[pa.Array, dict[str, str]]:
     return pa.array(chunk.qpos.reshape(-1), type=pa.float32()), {
         "observation_id": str(chunk.observation_id),
         "command": chunk.command,
-        "preserve_root_z": str(chunk.preserve_root_z).lower(),
     }
 
 
@@ -96,7 +94,6 @@ def motion_from_arrow(value: pa.Array, metadata: dict[str, Any]) -> MotionChunk:
         observation_id=_observation_id(metadata),
         command=str(metadata["command"]),
         qpos=flat.reshape(-1, MOTION_COLUMNS),
-        preserve_root_z=metadata.get("preserve_root_z", "false") == "true",
     )
 
 
