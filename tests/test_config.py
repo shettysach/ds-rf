@@ -7,12 +7,23 @@ from shared.config import AgentConfig, MotionGenConfig, SonicConfig
 
 def test_motion_gen_config_from_env(monkeypatch) -> None:
     monkeypatch.setenv("DSRF_DEVICE", "cuda:0")
+    monkeypatch.setenv("DSRF_MOTION_GENERATOR", "planner_sonic")
     monkeypatch.setenv("DSRF_PLANNER_ONNX", "/models/planner.onnx")
 
     assert MotionGenConfig.from_env() == MotionGenConfig(
+        generator="planner_sonic",
         planner_onnx=Path("/models/planner.onnx"),
         device="cuda:0",
     )
+
+
+def test_motion_gen_config_rejects_unavailable_backend(monkeypatch) -> None:
+    monkeypatch.setenv("DSRF_DEVICE", "cpu")
+    monkeypatch.setenv("DSRF_MOTION_GENERATOR", "ardy")
+    monkeypatch.setenv("DSRF_PLANNER_ONNX", "/models/planner.onnx")
+
+    with pytest.raises(ValueError, match="DSRF_MOTION_GENERATOR"):
+        MotionGenConfig.from_env()
 
 
 def test_sonic_config_from_env(monkeypatch) -> None:
@@ -81,6 +92,7 @@ def test_agent_config_from_env(monkeypatch) -> None:
 
 def test_missing_runtime_value_fails(monkeypatch) -> None:
     monkeypatch.delenv("DSRF_PLANNER_ONNX", raising=False)
+    monkeypatch.setenv("DSRF_MOTION_GENERATOR", "planner_sonic")
     monkeypatch.setenv("DSRF_DEVICE", "cpu")
 
     with pytest.raises(KeyError, match="DSRF_PLANNER_ONNX"):

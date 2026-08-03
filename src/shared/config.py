@@ -6,16 +6,19 @@ from pathlib import Path
 from typing import Literal
 
 type ViewerMode = Literal["none", "native"]
+type MotionGeneratorName = Literal["planner_sonic"]
 
 
 @dataclass(frozen=True)
 class MotionGenConfig:
+    generator: MotionGeneratorName
     planner_onnx: Path
     device: str
 
     @classmethod
     def from_env(cls) -> "MotionGenConfig":
         return cls(
+            generator=_motion_generator(),
             planner_onnx=Path(os.environ["DSRF_PLANNER_ONNX"]),
             device=os.environ["DSRF_DEVICE"],
         )
@@ -90,6 +93,16 @@ def _viewer_mode() -> ViewerMode:
     value = os.environ["DSRF_VIEWER"].strip().lower()
     if value not in {"none", "native"}:
         raise ValueError("DSRF_VIEWER must be 'none' or 'native'")
+    return value
+
+
+def _motion_generator() -> MotionGeneratorName:
+    value = os.environ["DSRF_MOTION_GENERATOR"].strip().lower()
+    if value != "planner_sonic":
+        raise ValueError(
+            "DSRF_MOTION_GENERATOR must be 'planner_sonic' until another "
+            "motion backend is installed"
+        )
     return value
 
 

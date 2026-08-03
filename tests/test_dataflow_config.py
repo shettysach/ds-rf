@@ -15,6 +15,9 @@ def test_runtime_environment_is_scoped_to_consuming_nodes() -> None:
     }
     assert nodes["motion-gen"]["env"] == {
         "DSRF_DEVICE": "${DSRF_DEVICE:-cpu}",
+        "DSRF_MOTION_GENERATOR": (
+            "${DSRF_MOTION_GENERATOR:-planner_sonic}"
+        ),
         "DSRF_PLANNER_ONNX": (
             "${DSRF_PLANNER_ONNX:-/tmp/GEAR-SONIC/planner_sonic.onnx}"
         ),

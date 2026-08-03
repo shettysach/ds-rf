@@ -8,23 +8,25 @@ from mjlab.utils.lab_api.math import quat_slerp
 
 from shared.messages import SONIC_FPS, MotionChunk
 
-PLANNER_FPS = 30
-
 
 def resample_motion(
-    planner_qpos: np.ndarray,
+    source_qpos: np.ndarray,
     *,
+    source_fps: float,
     observation_id: int,
     command: str,
 ) -> MotionChunk:
-    """Resample planner_sonic output to SONIC's control frequency."""
+    """Resample backend qpos output to SONIC's control frequency."""
 
-    qpos = torch.as_tensor(planner_qpos, dtype=torch.float32)
-    output_frames = math.floor(qpos.shape[0] * SONIC_FPS / PLANNER_FPS)
+    if not math.isfinite(source_fps) or source_fps <= 0.0:
+        raise ValueError("Source FPS must be positive and finite")
+
+    qpos = torch.as_tensor(source_qpos, dtype=torch.float32)
+    output_frames = math.floor(qpos.shape[0] * SONIC_FPS / source_fps)
     output = torch.empty((output_frames, qpos.shape[1]), dtype=torch.float32)
 
     for output_index in range(output_frames):
-        source_position = output_index * PLANNER_FPS / SONIC_FPS
+        source_position = output_index * source_fps / SONIC_FPS
         index_0 = min(math.floor(source_position), qpos.shape[0] - 1)
         index_1 = min(index_0 + 1, qpos.shape[0] - 1)
         blend = float(source_position - index_0)

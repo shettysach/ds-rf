@@ -49,12 +49,16 @@ def _command_event(observation_id: int, text: str) -> dict[str, object]:
 
 def _run_motion_gen(monkeypatch, events, generate):
     node = _Node(events)
-    generator = SimpleNamespace(generate=generate)
-    config = SimpleNamespace(device="cpu", planner_onnx=Path("planner.onnx"))
+    generator = SimpleNamespace(generate=generate, fps=30)
+    config = SimpleNamespace(
+        generator="planner_sonic",
+        device="cpu",
+        planner_onnx=Path("planner.onnx"),
+    )
     monkeypatch.setattr(motion_gen_node.MotionGenConfig, "from_env", lambda: config)
     monkeypatch.setattr(motion_gen_node, "Node", lambda: node)
     monkeypatch.setattr(
-        motion_gen_node, "PlannerSonic", lambda *args, **kwargs: generator
+        motion_gen_node, "PlannerSonicGenerator", lambda *args, **kwargs: generator
     )
     motion_gen_node.main()
     return node
@@ -67,10 +71,10 @@ def _planner_motion() -> np.ndarray:
 
 
 def test_motion_gen_generates_one_segment_per_command(monkeypatch) -> None:
-    generated: list[int] = []
+    generated: list[str] = []
 
-    def generate(command):
-        generated.append(command.mode)
+    def generate(text):
+        generated.append(text)
         return _planner_motion()
 
     node = _run_motion_gen(
@@ -80,7 +84,7 @@ def test_motion_gen_generates_one_segment_per_command(monkeypatch) -> None:
     )
 
     motions = [output for output in node.outputs if output[0] == "motion"]
-    assert generated == [2]
+    assert generated == ["walk forward 0.4"]
     assert len(motions) == 1
     _, value, kwargs = motions[0]
     chunk = motion_from_arrow(value, kwargs["metadata"])
@@ -90,10 +94,13 @@ def test_motion_gen_generates_one_segment_per_command(monkeypatch) -> None:
 
 
 def test_motion_gen_reports_invalid_raw_vlm_response(monkeypatch) -> None:
+    def generate(text):
+        raise ValueError(f"Unknown planner_sonic mode {text.split()[0].lower()!r}")
+
     node = _run_motion_gen(
         monkeypatch,
         [_command_event(5, "I think the robot should walk")],
-        lambda command: _planner_motion(),
+        generate,
     )
 
     errors = [output for output in node.outputs if output[0] == "error"]

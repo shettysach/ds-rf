@@ -4,9 +4,8 @@ import onnxruntime as ort
 import pytest
 import torch
 
-from motion_gen.planner_sonic import PlannerSonic
+from motion_gen.planner_sonic import PlannerSonicGenerator
 from motion_gen.resample import resample_motion
-from nodes.motion_gen import parse_motion_command
 from shared.g1 import DEFAULT_JOINT_POS_MJLAB
 from sonic.mjlab_env import RobotState, SonicMjlabEnv
 from sonic.policy import SonicPolicy
@@ -39,10 +38,11 @@ def test_real_checkpoints_generate_action_and_motion() -> None:
     assert bool(torch.isfinite(action).all())
     assert not completed
 
-    planner = PlannerSonic(SONIC_DIR / "planner_sonic.onnx")
-    planner_qpos = planner.generate(parse_motion_command("walk forward 0.5"))
+    planner = PlannerSonicGenerator(SONIC_DIR / "planner_sonic.onnx")
+    planner_qpos = planner.generate("walk forward 0.5")
     chunk = resample_motion(
         planner_qpos,
+        source_fps=planner.fps,
         observation_id=0,
         command="walk forward 0.5",
     )
