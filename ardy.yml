@@ -8,9 +8,10 @@ nodes:
       DSRF_VLM_URL: http://127.0.0.1:8080
       DSRF_VLM_TIMEOUT: "120"
       DSRF_VLM_SYSTEM_PROMPT: TASK.md
-      DSRF_VLM_USER_PROMPT: prompt/ARDY_USER.md
+      DSRF_VLM_USER_PROMPT: prompt/USER.md
     inputs:
       observation: sonic/observation
+      encoding_error: text-encoder/error
       planning_error: motion-gen/error
       sonic_error: sonic/error
     outputs:
@@ -26,6 +27,7 @@ nodes:
       command: agent/command
     outputs:
       - encoded_command
+      - error
 
   - id: motion-gen
     path: uv

@@ -36,14 +36,15 @@ def test_ardy_dataflow_wires_encoder_between_agent_and_motion_gen() -> None:
 
     assert set(nodes) == {"agent", "text-encoder", "motion-gen", "sonic"}
     assert nodes["text-encoder"]["inputs"] == {"command": "agent/command"}
-    assert nodes["text-encoder"]["outputs"] == ["encoded_command"]
+    assert nodes["text-encoder"]["outputs"] == ["encoded_command", "error"]
     assert nodes["text-encoder"]["env"]["DSRF_TEXT_ENCODER_MODEL"] == (
         "${DSRF_TEXT_ENCODER_MODEL:-/tmp/model}"
     )
-    assert nodes["agent"]["env"]["DSRF_VLM_USER_PROMPT"] == "prompt/ARDY_USER.md"
+    assert nodes["agent"]["env"]["DSRF_VLM_USER_PROMPT"] == "prompt/USER.md"
     assert nodes["motion-gen"]["inputs"] == {
         "encoded_command": "text-encoder/encoded_command"
     }
     assert nodes["motion-gen"]["env"]["DSRF_MOTION_GENERATOR"] == "ardy"
     assert nodes["sonic"]["inputs"] == {"motion": "motion-gen/motion"}
     assert nodes["agent"]["inputs"]["observation"] == "sonic/observation"
+    assert nodes["agent"]["inputs"]["encoding_error"] == "text-encoder/error"

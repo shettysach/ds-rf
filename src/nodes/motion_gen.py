@@ -60,7 +60,16 @@ def main() -> None:
                     if isinstance(request, EncodedCommand)
                     else request.text
                 )
-                source_qpos = generator.generate(generation_input)
+                if isinstance(request, EncodedCommand):
+                    from motion_gen.ardy.parser import parse_motion_command
+
+                    command = parse_motion_command(request.text)
+                    source_qpos = generator.generate(
+                        generation_input,
+                        command.target_velocity,
+                    )
+                else:
+                    source_qpos = generator.generate(generation_input)
             except ValueError as exc:
                 node.log(
                     "warn",

@@ -49,9 +49,10 @@ dora run demo.yml
 
 ## ARDY closed loop
 
-The ARDY graph encodes each agent command with a local Transformers model,
-generates a five-second reference, and carries ARDY's generated history into the
-next request:
+The ARDY graph parses each JSON command, encodes its `motion` field with a local
+Transformers model, and converts its `direction` into target-velocity root
+constraints. It generates a five-second reference and carries ARDY's generated
+history into the next request:
 
 ```bash
 export DSRF_TEXT_ENCODER_MODEL=~/Desktop/encoding/model/

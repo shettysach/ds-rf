@@ -4,6 +4,7 @@ import json
 import math
 from dataclasses import dataclass
 from enum import IntEnum
+from typing import cast
 
 Vector3 = tuple[float, float, float]
 
@@ -128,6 +129,7 @@ def _parse_vlm_command(text: str) -> PlannerCommand:
         raise ValueError("Command must be a JSON object") from exc
     if not isinstance(payload, dict):
         raise ValueError("Command must be a JSON object")
+    payload = cast(dict[str, object], payload)
 
     expected_fields = {"motion", "direction"}
     if set(payload) != expected_fields:

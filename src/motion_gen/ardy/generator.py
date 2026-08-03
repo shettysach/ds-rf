@@ -8,8 +8,10 @@ from ardy.exports.mujoco import MujocoQposConverter
 from ardy.model import load_model
 from ardy.motion_rep.tools import length_to_mask
 
+from motion_gen.ardy.constraints import build_velocity_constraints
 from motion_gen.ardy.encoder import prepare_conditioning
-from motion_gen.ardy.history import build_initial_history
+from motion_gen.ardy.history import build_initial_history, qpos_to_ardy_inputs
+from motion_gen.ardy.parser import Vector2
 from shared.g1 import standing_qpos
 
 
@@ -44,8 +46,18 @@ class Ardy:
             self.model.motion_rep,
             device=self.device,
         )
+        _, root_positions = qpos_to_ardy_inputs(
+            standing_history,
+            self.converter,
+            device=self.device,
+        )
+        self.root_history = root_positions[0, -2:].detach().clone()
 
-    def generate(self, embedding: np.ndarray) -> np.ndarray:
+    def generate(
+        self,
+        embedding: np.ndarray,
+        target_velocity: Vector2,
+    ) -> np.ndarray:
         text_feat, text_pad_mask = prepare_conditioning(
             embedding,
             device=self.device,
@@ -53,6 +65,15 @@ class Ardy:
         generated_frames = self.fps * self.duration_s
         num_frames = generated_frames + self.history_frames
         lengths = torch.tensor([num_frames], device=self.device)
+        motion_mask, observed_motion = build_velocity_constraints(
+            self.model.motion_rep,
+            self.root_history,
+            target_velocity,
+            generated_frames=generated_frames,
+            history_frames=self.history_frames,
+            fps=self.fps,
+            device=self.device,
+        )
 
         with torch.inference_mode():
             motion = self.model(
@@ -60,8 +81,8 @@ class Ardy:
                 num_denoising_steps=int(self.model.diffusion.num_base_steps),
                 pad_mask=length_to_mask(lengths),
                 first_heading_angle=None,
-                motion_mask=None,
-                observed_motion=None,
+                motion_mask=motion_mask,
+                observed_motion=observed_motion,
                 text_feat=text_feat,
                 text_pad_mask=text_pad_mask,
                 cfg_weight=(2.0, 2.0),
@@ -79,6 +100,10 @@ class Ardy:
                 generated_motion,
                 is_normalized=True,
             )
+            root_positions = decoded["root_positions"]
+            if root_positions.shape[1] < 2:
+                raise ValueError("ARDY generated fewer than two root positions")
+            next_root_history = root_positions[0, -2:].detach().clone()
             batched_qpos = self.converter.dict_to_qpos(
                 decoded,
                 str(self.device),
@@ -92,4 +117,5 @@ class Ardy:
         if not np.isfinite(qpos).all():
             raise ValueError("ARDY qpos contains NaN or infinite values")
         self.initial_history = next_history
+        self.root_history = next_root_history
         return qpos

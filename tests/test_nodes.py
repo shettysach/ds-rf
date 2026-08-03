@@ -141,11 +141,13 @@ def test_motion_gen_does_not_swallow_planner_errors(monkeypatch) -> None:
 def test_ardy_motion_gen_consumes_encoded_commands(monkeypatch) -> None:
     from shared.config import ArdyConfig
 
-    node = _Node([_encoded_command_event(7, "turn right")])
-    generated: list[np.ndarray] = []
+    command_text = '{"motion":"walk","direction":"right"}'
+    node = _Node([_encoded_command_event(7, command_text)])
+    generated: list[tuple[np.ndarray, tuple[float, float]]] = []
     generator = SimpleNamespace(
         fps=25,
-        generate=lambda embedding: generated.append(embedding) or _planner_motion(),
+        generate=lambda embedding, velocity: generated.append((embedding, velocity))
+        or _planner_motion(),
     )
     config = motion_gen_node.MotionGenConfig(
         device="cpu",
@@ -158,12 +160,13 @@ def test_ardy_motion_gen_consumes_encoded_commands(monkeypatch) -> None:
     motion_gen_node.main()
 
     assert len(generated) == 1
-    assert generated[0].shape == (4096,)
+    assert generated[0][0].shape == (4096,)
+    assert generated[0][1] == (-0.5, 0.0)
     chunk = motion_from_arrow(
         node.outputs[0][1], cast(Any, node.outputs[0][2]["metadata"])
     )
     assert chunk.observation_id == 7
-    assert chunk.command == "turn right"
+    assert chunk.command == command_text
 
 
 class _Simulation:

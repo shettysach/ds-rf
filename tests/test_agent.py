@@ -123,6 +123,16 @@ def _error_event(observation_id: int) -> dict[str, object]:
     }
 
 
+def _encoding_error_event(observation_id: int) -> dict[str, object]:
+    return {
+        "type": "INPUT",
+        "id": "encoding_error",
+        "value": pipeline_error_to_arrow(
+            PipelineError("text-encoder", observation_id, "bad JSON command")
+        ),
+    }
+
+
 def test_agent_retries_three_invalid_responses_then_stands() -> None:
     node = _Node(
         [
@@ -174,3 +184,32 @@ def test_agent_commits_exact_completed_command() -> None:
     AgentLoop(cast(Any, node), cast(Any, client)).run()
 
     assert client.commits == [(0, "walk forward 0.4")]
+
+
+def test_agent_retries_text_encoder_errors() -> None:
+    node = _Node(
+        [
+            _observation_event(VisualObservation(0, None, b"jpeg")),
+            _encoding_error_event(0),
+            {"type": "STOP"},
+        ]
+    )
+    client = _Client(
+        [
+            "not JSON",
+            '{"motion":"walk","direction":"forward"}',
+        ]
+    )
+
+    AgentLoop(cast(Any, node), cast(Any, client)).run()
+
+    commands = [
+        agent_command_from_arrow(value, cast(Any, kwargs["metadata"]))
+        for output_id, value, kwargs in node.outputs
+        if output_id == "command"
+    ]
+    assert [command.text for command in commands] == [
+        "not JSON",
+        '{"motion":"walk","direction":"forward"}',
+    ]
+    assert client.feedback[1] is not None

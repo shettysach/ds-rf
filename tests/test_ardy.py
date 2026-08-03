@@ -33,6 +33,14 @@ def test_ardy_model_loader_receives_a_device_string(
         "build_initial_history",
         lambda *args, **kwargs: torch.zeros((1, 4, 1)),
     )
+    monkeypatch.setattr(
+        ardy_generator,
+        "qpos_to_ardy_inputs",
+        lambda *args, **kwargs: (
+            torch.zeros((1, 4, 1, 3, 3)),
+            torch.zeros((1, 4, 3)),
+        ),
+    )
     ardy_generator.Ardy(tmp_path, device="cuda:0")
 
     assert received["device"] == "cuda:0"
@@ -66,7 +74,14 @@ def test_ardy_history_conditions_generation_but_is_not_returned() -> None:
     model.diffusion.num_base_steps = 10
     returned_motion = torch.arange(129 * 3, dtype=torch.float32).reshape(1, 129, 3)
     model.return_value = returned_motion
-    model.motion_rep.inverse.side_effect = lambda motion, **kwargs: {"motion": motion}
+    model.motion_rep.create_conditions.return_value = (
+        torch.zeros((129, 3)),
+        torch.zeros((129, 3)),
+    )
+    model.motion_rep.inverse.side_effect = lambda motion, **kwargs: {
+        "motion": motion,
+        "root_positions": torch.zeros((1, 125, 3)),
+    }
     converter = Mock()
     converter.dict_to_qpos.return_value = np.zeros((1, 125, 36), dtype=np.float32)
 
@@ -76,10 +91,11 @@ def test_ardy_history_conditions_generation_but_is_not_returned() -> None:
     generator.converter = converter
     generator.history_frames = 4
     generator.initial_history = torch.zeros((1, 4, 3))
+    generator.root_history = torch.zeros((2, 3))
     initial_history = generator.initial_history
 
     embedding = np.arange(4096, dtype=np.float32)
-    qpos = generator.generate(embedding)
+    qpos = generator.generate(embedding, (0.0, 0.5))
 
     assert qpos.shape == (125, 36)
     model.motion_rep.inverse.assert_called_once()
@@ -87,11 +103,14 @@ def test_ardy_history_conditions_generation_but_is_not_returned() -> None:
     assert generated_motion.shape == (1, 125, 3)
     assert model.call_args.kwargs["init_history_sequence"] is initial_history
     assert model.call_args.kwargs["first_heading_angle"] is None
+    assert model.call_args.kwargs["motion_mask"] is not None
+    assert model.call_args.kwargs["observed_motion"] is not None
     assert model.call_args.kwargs["text_feat"].shape == (1, 1, 4096)
     np.testing.assert_array_equal(
         model.call_args.kwargs["text_feat"][0, 0].numpy(), embedding
     )
     torch.testing.assert_close(generator.initial_history, returned_motion[:, -4:])
+    torch.testing.assert_close(generator.root_history, torch.zeros((2, 3)))
 
 
 def test_prepare_conditioning_accepts_per_request_embedding() -> None:

@@ -4,11 +4,14 @@ import time
 
 from dora import Node
 
+from motion_gen.ardy.parser import parse_motion_command
 from shared.config import TextEncoderConfig
 from shared.messages import (
     EncodedCommand,
+    PipelineError,
     agent_command_from_arrow,
     encoded_command_to_arrow,
+    pipeline_error_to_arrow,
 )
 from text_encoder import TextEncoder
 
@@ -27,7 +30,25 @@ def main() -> None:
         metadata = dict(event.get("metadata") or {})
         request = agent_command_from_arrow(event["value"], metadata)
         started_at = time.perf_counter()
-        embedding = encoder.encode(request.text)
+        try:
+            command = parse_motion_command(request.text)
+            embedding = encoder.encode(command.motion)
+        except ValueError as exc:
+            node.log(
+                "warn",
+                f"[OBS {request.observation_id}] invalid command: "
+                f"{request.text!r} error={str(exc)!r}",
+                target="dsrf.text_encoder",
+                fields={
+                    "event": "invalid_command",
+                    "observation_id": str(request.observation_id),
+                    "command": request.text,
+                    "detail": str(exc),
+                },
+            )
+            error = PipelineError("text-encoder", request.observation_id, str(exc))
+            node.send_output("error", pipeline_error_to_arrow(error))
+            continue
         encoded = EncodedCommand(
             observation_id=request.observation_id,
             text=request.text,
@@ -40,12 +61,12 @@ def main() -> None:
         node.log(
             "info",
             f"[OBS {request.observation_id}] command encoded: "
-            f"text={request.text!r} encode_ms={encode_ms:.1f}",
+            f"text={command.motion!r} encode_ms={encode_ms:.1f}",
             target="dsrf.text_encoder",
             fields={
                 "event": "command_encoded",
                 "observation_id": str(request.observation_id),
-                "command": request.text,
+                "command": command.motion,
                 "encode_ms": f"{encode_ms:.1f}",
             },
         )
