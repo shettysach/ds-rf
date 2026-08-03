@@ -5,10 +5,10 @@ nodes:
     path: uv
     args: run dsrf-agent
     env:
-      DSRF_VLM_URL: "${DSRF_VLM_URL:-http://127.0.0.1:8080}"
-      DSRF_VLM_TIMEOUT: "${DSRF_VLM_TIMEOUT:-120}"
-      DSRF_VLM_SYSTEM_PROMPT: "${DSRF_VLM_SYSTEM_PROMPT:-prompt/SYSTEM.md}"
-      DSRF_VLM_USER_PROMPT: "${DSRF_VLM_USER_PROMPT:-prompt/USER.md}"
+      DSRF_VLM_URL: http://127.0.0.1:8080
+      DSRF_VLM_TIMEOUT: "120"
+      DSRF_VLM_SYSTEM_PROMPT: TASK.md
+      DSRF_VLM_USER_PROMPT: prompt/USER.md
     inputs:
       observation: sonic/observation
       planning_error: motion-gen/error
@@ -20,9 +20,9 @@ nodes:
     path: uv
     args: run dsrf-motion-gen
     env:
-      DSRF_DEVICE: "${DSRF_DEVICE:-cpu}"
+      DSRF_DEVICE: cuda
       DSRF_MOTION_GENERATOR: "${DSRF_MOTION_GENERATOR:-planner_sonic}"
-      DSRF_PLANNER_ONNX: "${DSRF_PLANNER_ONNX:-/tmp/GEAR-SONIC/planner_sonic.onnx}"
+      DSRF_PLANNER_ONNX: /tmp/GEAR-SONIC/planner_sonic.onnx
     inputs:
       command: agent/command
     outputs:
@@ -33,13 +33,13 @@ nodes:
     path: uv
     args: run dsrf-sonic
     env:
-      DSRF_DEVICE: "${DSRF_DEVICE:-cpu}"
-      DSRF_SONIC_DIR: "${DSRF_SONIC_DIR:-/tmp/GEAR-SONIC}"
-      DSRF_TASK: "${DSRF_TASK:-portrait-corridors}"
-      DSRF_IMAGE_WIDTH: "${DSRF_IMAGE_WIDTH:-640}"
-      DSRF_IMAGE_HEIGHT: "${DSRF_IMAGE_HEIGHT:-480}"
-      DSRF_JPEG_QUALITY: "${DSRF_JPEG_QUALITY:-85}"
-      DSRF_VIEWER: "${DSRF_VIEWER:-native}"
+      DSRF_DEVICE: cuda
+      DSRF_SONIC_DIR: /tmp/GEAR-SONIC
+      DSRF_TASK: portrait-corridors
+      DSRF_IMAGE_WIDTH: "640"
+      DSRF_IMAGE_HEIGHT: "480"
+      DSRF_JPEG_QUALITY: "85"
+      DSRF_VIEWER: native
       DSRF_REFERENCE_GHOST: "${DSRF_REFERENCE_GHOST:-false}"
     inputs:
       motion: motion-gen/motion
