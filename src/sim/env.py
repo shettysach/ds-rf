@@ -147,22 +147,19 @@ class MjlabEnv:
             offline = self._env._offline_renderer
             if offline is None:
                 raise RuntimeError("MJLab offscreen renderer is not initialized")
-            offline.update(self._env.sim.data)
-            renderer = offline.renderer
-            camera = mujoco.MjvCamera()  # ty: ignore[unresolved-attribute]
-            camera.type = mujoco.mjtCamera.mjCAMERA_TRACKING  # ty: ignore[unresolved-attribute]
-            camera.trackbodyid = mujoco.mj_name2id(  # ty: ignore[unresolved-attribute]
-                renderer.model,
-                mujoco.mjtObj.mjOBJ_BODY,  # ty: ignore[unresolved-attribute]
-                "torso_link",
-            )
-            camera.distance = 2.5
-            camera.azimuth = 0.0
-            camera.elevation = -15.0
-            state = self.robot_state()
-            camera.lookat[:] = state.root_pos_w.detach().cpu().numpy()
-            renderer.update_scene(self._env.sim.data, camera=camera)
-            return renderer.render().copy()
+            # OffscreenRenderer.update() bridges MJWarp data into its own native
+            # MjData before calling MuJoCo. Do not call renderer.update_scene()
+            # directly with self._env.sim.data: that is a WarpBridge, not MjData.
+            camera = offline._cam
+            saved = (camera.distance, camera.azimuth, camera.elevation)
+            try:
+                camera.distance = 3.0
+                camera.azimuth = 30.0
+                camera.elevation = -12.0
+                offline.update(self._env.sim.data)
+                return offline.render().copy()
+            finally:
+                camera.distance, camera.azimuth, camera.elevation = saved
 
     def close(self) -> None:
         self._env.close()
