@@ -31,7 +31,7 @@ class DemoVideoRecorder:
             codec="libx264",
             macro_block_size=1,
         )
-        self._font = ImageFont.load_default()
+        self._font = ImageFont.load_default(size=10)
         self.frames = 0
 
     def write_frame(self, rgb: np.ndarray, state: DemoVlmState) -> None:
@@ -42,18 +42,21 @@ class DemoVideoRecorder:
         draw = ImageDraw.Draw(overlay)
 
         reasoning = state.reasoning.strip() or "No reasoning returned."
-        lines = ["VLM", "", "Reasoning", ""]
-        lines.extend(textwrap.wrap(reasoning, width=58) or [""])
-        lines.extend(["", "Decision", "", _decision_label(state.command)])
-        lines.extend(["", f"Observation #{state.observation_id}"])
+        reasoning = " ".join(reasoning.split())
+        if len(reasoning) > 240:
+            reasoning = reasoning[:237].rstrip() + "..."
+        lines = ["VLM", "Reasoning"]
+        lines.extend(textwrap.wrap(reasoning, width=36) or [""])
+        lines.extend(["Decision", _decision_label(state.command)])
+        lines.append(f"Observation #{state.observation_id}")
 
-        line_height = 16
-        padding = 18
-        panel_width = min(image.width - 24, max(300, int(image.width * 0.45)))
-        panel_height = padding * 2 + line_height * len(lines)
+        line_height = 13
+        padding = 10
+        panel_width = min(image.width - 24, max(220, int(image.width * 0.32)))
+        panel_height = padding * 2 + line_height * len(lines) + 4
         draw.rounded_rectangle(
             (12, 12, 12 + panel_width, 12 + panel_height),
-            radius=10,
+            radius=7,
             fill=(0, 0, 0, 200),
         )
         draw.multiline_text(
@@ -61,7 +64,7 @@ class DemoVideoRecorder:
             "\n".join(lines),
             fill=(255, 255, 255, 255),
             font=self._font,
-            spacing=2,
+            spacing=1,
         )
 
         image = Image.alpha_composite(image, overlay).convert("RGB")
