@@ -134,13 +134,14 @@ class ViserSimViewer(ViserPlayViewer):
             super().setup()
         assert len(tab_groups) == 1
         tab_group = tab_groups[0]
-        # Viser's group.remove() marks the parent removed before recursively
-        # removing tabs, which its child removal rejects. Remove children first.
-        for tab in tuple(tab_group._tab_handles):
-            tab.remove()
-        tab_group.remove()
+        # Keep MJLab's GUI handles alive because its sync path updates them,
+        # but detach their tabs from the visible group.
+        tab_group._tab_labels = ()
+        tab_group._tab_icons_html = ()
+        tab_group._tab_handles = []
+        tab_group._tab_container_ids = ()
 
-        with self._server.gui.add_folder("VLM"):
+        with tab_group.add_tab("VLM"):
             self._vlm_panel = self._server.gui.add_markdown(
                 "## VLM\n\n**Waiting for observation…**"
             )
