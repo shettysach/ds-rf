@@ -53,7 +53,38 @@ def test_stand_has_no_specific_target() -> None:
     np.testing.assert_allclose(captured["movement_direction"], 0.0)
 
 
-def _standing() -> np.ndarray:
+@pytest.mark.parametrize(
+    ("direction", "expected"),
+    [
+        ("forward", (0.0, 1.0, 0.0)),
+        ("backward", (0.0, -1.0, 0.0)),
+        ("left", (-1.0, 0.0, 0.0)),
+        ("right", (1.0, 0.0, 0.0)),
+    ],
+)
+def test_direction_is_rotated_into_world_frame(
+    direction: str, expected: tuple[float, float, float]
+) -> None:
+    captured: dict[str, np.ndarray] = {}
+
+    def run(_outputs, inputs):
+        captured.update(inputs)
+        qpos = np.tile(_standing(yaw=np.pi / 2.0), (1, 8, 1))
+        return qpos, np.array([8], dtype=np.int64)
+
+    planner = PlannerSonic.__new__(PlannerSonic)
+    planner.session = cast(Any, SimpleNamespace(run=run))
+    planner._context = np.tile(_standing(yaw=np.pi / 2.0), (1, 4, 1))
+    planner.generate("walk", None, direction)
+
+    np.testing.assert_allclose(captured["movement_direction"], [expected], atol=1e-6)
+    np.testing.assert_allclose(
+        captured["facing_direction"], [[0.0, 1.0, 0.0]], atol=1e-6
+    )
+
+
+def _standing(*, yaw: float = 0.0) -> np.ndarray:
     qpos = np.zeros(36, dtype=np.float32)
-    qpos[3] = 1.0
+    qpos[3] = np.cos(yaw / 2.0)
+    qpos[6] = np.sin(yaw / 2.0)
     return qpos
