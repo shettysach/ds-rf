@@ -18,6 +18,7 @@ from shared.messages import (
 from sim.env import MjlabEnv
 from sim.renderer import SimRenderer
 from sim.sonic.policy import SonicPolicy
+from sim.video import DemoVideoRecorder, DemoVlmState
 from sim.viewer import SimViewer
 
 CONTROL_PERIOD = 1.0 / SONIC_FPS
@@ -38,14 +39,17 @@ class SimRuntime:
         policy: SonicPolicy,
         renderer: SimRenderer,
         viewer: SimViewer | None = None,
+        recorder: DemoVideoRecorder | None = None,
     ) -> None:
         self.node = node
         self.simulation = simulation
         self.policy = policy
         self.renderer = renderer
         self.viewer = viewer
+        self.recorder = recorder
         self.observation_id = 0
         self._observation_published_at: float | None = None
+        self.demo_vlm_state = DemoVlmState()
 
     def run(self) -> None:
         render_ms, jpeg_size = self._publish_observation(completed_command=None)
@@ -91,6 +95,11 @@ class SimRuntime:
                 self._report_error(str(exc))
                 return
 
+        self.demo_vlm_state = DemoVlmState(
+            observation_id=chunk.observation_id,
+            reasoning=chunk.reasoning or "",
+            command=chunk.command,
+        )
         if self.viewer is not None and hasattr(self.viewer, "set_vlm_result"):
             self.viewer.set_vlm_result(
                 chunk.observation_id,
@@ -151,6 +160,10 @@ class SimRuntime:
                 self.simulation.step(action)
                 if self.viewer is not None:
                     self.viewer.sync()
+                if self.recorder is not None:
+                    self.recorder.write_frame(
+                        self.renderer.capture_demo_rgb(), self.demo_vlm_state
+                    )
                 frames += 1
 
                 # Completion is detected while producing the last reference

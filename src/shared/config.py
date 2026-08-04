@@ -64,6 +64,7 @@ class SimConfig:
     jpeg_quality: int
     viewer: ViewerMode
     reference_ghost: bool
+    demo_video_path: Path | None = None
 
     @classmethod
     def from_env(cls) -> "SimConfig":
@@ -76,6 +77,11 @@ class SimConfig:
             jpeg_quality=_bounded_int("JPEG_QUALITY", minimum=1, maximum=100),
             viewer=_viewer_mode(),
             reference_ghost=_boolean("REFERENCE_GHOST"),
+            demo_video_path=(
+                Path(value)
+                if (value := os.environ.get("DEMO_VIDEO_PATH", "").strip())
+                else None
+            ),
         )
 
 

@@ -9,6 +9,7 @@ from sim.env import MjlabEnv
 from sim.renderer import SimRenderer
 from sim.runtime import SimRuntime
 from sim.sonic.policy import SonicPolicy
+from sim.video import DemoVideoRecorder
 from sim.viewer import NativeSimViewer, SimViewer, ViserSimViewer
 
 
@@ -39,9 +40,16 @@ def main() -> None:
                 else ViserSimViewer(simulation, reference)
             )
         renderer = SimRenderer(simulation, jpeg_quality=cfg.jpeg_quality)
+        recorder = (
+            DemoVideoRecorder(cfg.demo_video_path)
+            if cfg.demo_video_path is not None
+            else None
+        )
         _log_init(node, cfg)
-        SimRuntime(node, simulation, policy, renderer, viewer).run()
+        SimRuntime(node, simulation, policy, renderer, viewer, recorder).run()
     finally:
+        if "recorder" in locals() and recorder is not None:
+            recorder.close()
         if viewer is not None:
             viewer.close()
         simulation.close()

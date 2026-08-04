@@ -141,6 +141,47 @@ class MjlabEnv:
             )
         return rgb, projection
 
+    def render_demo_rgb(self) -> np.ndarray:
+        """Render a stable third-person camera for simulation-time video."""
+        with self.compute_context():
+            offline = self._env._offline_renderer
+            if offline is None:
+                raise RuntimeError("MJLab offscreen renderer is not initialized")
+            offline.update(self._env.sim.data)
+            renderer = offline.renderer
+            camera = renderer.scene.camera
+            saved = (
+                camera.type,
+                camera.trackbodyid,
+                camera.distance,
+                camera.azimuth,
+                camera.elevation,
+                camera.lookat.copy(),
+            )
+            try:
+                camera.type = mujoco.mjtCamera.mjCAMERA_TRACKING  # ty: ignore[unresolved-attribute]
+                camera.trackbodyid = mujoco.mj_name2id(  # ty: ignore[unresolved-attribute]
+                    renderer.model,
+                    mujoco.mjtObj.mjOBJ_BODY,  # ty: ignore[unresolved-attribute]
+                    "torso_link",
+                )
+                camera.distance = 2.5
+                camera.azimuth = 0.0
+                camera.elevation = -15.0
+                state = self.robot_state()
+                camera.lookat[:] = state.root_pos_w.detach().cpu().numpy()
+                return renderer.render().copy()
+            finally:
+                (
+                    camera.type,
+                    camera.trackbodyid,
+                    camera.distance,
+                    camera.azimuth,
+                    camera.elevation,
+                    lookat,
+                ) = saved
+                camera.lookat[:] = lookat
+
     def close(self) -> None:
         self._env.close()
 

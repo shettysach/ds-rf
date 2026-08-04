@@ -22,6 +22,10 @@ class SimRenderer:
         image, projection = self.simulation.render_rgbd()
         return self._encode(image), projection
 
+    def capture_demo_rgb(self) -> np.ndarray:
+        """Capture the stable offscreen demo camera, separate from interactive Viser."""
+        return self.simulation.render_demo_rgb()
+
     def _encode(self, image: np.ndarray) -> bytes:
         buffer = BytesIO()
         iio.imwrite(
