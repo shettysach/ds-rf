@@ -133,7 +133,12 @@ class ViserSimViewer(ViserPlayViewer):
         with patch.object(self._server.gui, "add_tab_group", capture_tab_group):
             super().setup()
         assert len(tab_groups) == 1
-        tab_groups[0].remove()
+        tab_group = tab_groups[0]
+        # Viser's group.remove() marks the parent removed before recursively
+        # removing tabs, which its child removal rejects. Remove children first.
+        for tab in tuple(tab_group._tab_handles):
+            tab.remove()
+        tab_group.remove()
 
         with self._server.gui.add_folder("VLM"):
             self._vlm_panel = self._server.gui.add_markdown(
