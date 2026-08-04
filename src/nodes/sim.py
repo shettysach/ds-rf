@@ -54,6 +54,7 @@ def main() -> None:
             viewer,
             recorder,
             stop_recording_at_corridor=cfg.task == "portrait-corridors",
+            motion_timeout_seconds=cfg.motion_timeout_seconds,
         ).run()
     finally:
         if "recorder" in locals() and recorder is not None:

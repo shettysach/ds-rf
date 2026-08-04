@@ -388,3 +388,24 @@ def test_sonic_stops_demo_recording_after_standing_at_corridor_approach(
             },
         )
     ]
+
+
+def test_sonic_motion_execution_has_simulation_frame_timeout() -> None:
+    class _StuckPolicy(_Policy):
+        def infer(self, state):
+            del state
+            return torch.zeros((1, 29)), False
+
+    simulation = _Simulation()
+    runtime = sim_runtime.SimRuntime(
+        cast(Any, _Node([])),
+        cast(Any, simulation),
+        cast(Any, _StuckPolicy()),
+        cast(Any, _Renderer(simulation)),
+        motion_timeout_seconds=0.04,
+    )
+
+    with pytest.raises(sim_runtime.MotionExecutionTimeout):
+        runtime._execute()
+
+    assert simulation.steps == 2

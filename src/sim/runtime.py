@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 import time
 from dataclasses import dataclass
@@ -34,6 +35,10 @@ class ExecutionStats:
     overrun_steps: int
 
 
+class MotionExecutionTimeout(RuntimeError):
+    pass
+
+
 class SimRuntime:
     def __init__(
         self,
@@ -44,6 +49,7 @@ class SimRuntime:
         viewer: SimViewer | None = None,
         recorder: DemoVideoRecorder | None = None,
         stop_recording_at_corridor: bool = False,
+        motion_timeout_seconds: float = 20.0,
     ) -> None:
         self.node = node
         self.simulation = simulation
@@ -52,6 +58,12 @@ class SimRuntime:
         self.viewer = viewer
         self.recorder = recorder
         self.stop_recording_at_corridor = stop_recording_at_corridor
+        if motion_timeout_seconds <= 0.0:
+            raise ValueError("Motion timeout must be positive")
+        self.max_motion_frames = max(
+            1, math.ceil(motion_timeout_seconds * SONIC_FPS)
+        )
+        self.motion_timeout_seconds = motion_timeout_seconds
         self.observation_id = 0
         self._observation_published_at: float | None = None
         self.demo_vlm_state = DemoVlmState()
@@ -119,7 +131,11 @@ class SimRuntime:
         pause_ms = (
             (received_at - published_at) * 1000.0 if published_at is not None else 0.0
         )
-        stats = self._execute()
+        try:
+            stats = self._execute()
+        except MotionExecutionTimeout as exc:
+            self._handle_motion_timeout(chunk.command, str(exc))
+            return
         if self._stop_recording_if_ready(chunk.command):
             return
         completed_observation_id = self.observation_id
@@ -160,6 +176,11 @@ class SimRuntime:
         overrun_steps = 0
         with torch.no_grad():
             while True:
+                if frames >= self.max_motion_frames:
+                    raise MotionExecutionTimeout(
+                        f"Motion exceeded {self.motion_timeout_seconds:.1f}s "
+                        f"({self.max_motion_frames} simulation frames)"
+                    )
                 delay = next_step - time.perf_counter()
                 if delay > 0.0:
                     time.sleep(delay)
@@ -221,6 +242,29 @@ class SimRuntime:
         )
         self._request_dataflow_stop()
         return True
+
+    def _handle_motion_timeout(self, command: str, detail: str) -> None:
+        self._close_recorder()
+        self._demo_complete = True
+        self.node.log(
+            "error",
+            f"[OBS {self.observation_id}] motion timeout: {detail}",
+            target="dsrf.sim",
+            fields={
+                "event": "motion_timeout",
+                "observation_id": str(self.observation_id),
+                "command": command,
+                "detail": detail,
+            },
+        )
+        self._request_dataflow_stop()
+
+    def _close_recorder(self) -> None:
+        if self.recorder is None:
+            return
+        recorder = self.recorder
+        self.recorder = None
+        recorder.close()
 
     def _request_dataflow_stop(self) -> None:
         dataflow_id = getattr(self.node, "dataflow_id", None)

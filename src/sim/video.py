@@ -33,6 +33,7 @@ class DemoVideoRecorder:
         )
         self._font = ImageFont.load_default(size=10)
         self.frames = 0
+        self._closed = False
 
     def write_frame(self, rgb: np.ndarray, state: DemoVlmState) -> None:
         image = Image.fromarray(np.asarray(rgb, dtype=np.uint8), mode="RGB").convert(
@@ -43,8 +44,8 @@ class DemoVideoRecorder:
 
         reasoning = state.reasoning.strip() or "No reasoning returned."
         reasoning = " ".join(reasoning.split())
-        if len(reasoning) > 240:
-            reasoning = reasoning[:237].rstrip() + "..."
+        if len(reasoning) > 800:
+            reasoning = reasoning[:797].rstrip() + "..."
         lines = ["VLM", "Reasoning"]
         lines.extend(textwrap.wrap(reasoning, width=36) or [""])
         lines.extend(["Decision", _decision_label(state.command)])
@@ -72,7 +73,10 @@ class DemoVideoRecorder:
         self.frames += 1
 
     def close(self) -> None:
+        if self._closed:
+            return
         self._writer.close()
+        self._closed = True
 
 
 def _decision_label(command: str) -> str:

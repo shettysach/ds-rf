@@ -65,6 +65,7 @@ class SimConfig:
     viewer: ViewerMode
     reference_ghost: bool
     demo_video_path: Path | None = None
+    motion_timeout_seconds: float = 20.0
 
     @classmethod
     def from_env(cls) -> "SimConfig":
@@ -81,6 +82,9 @@ class SimConfig:
                 Path(value)
                 if (value := os.environ.get("DEMO_VIDEO_PATH", "").strip())
                 else None
+            ),
+            motion_timeout_seconds=_positive_float(
+                "MOTION_TIMEOUT_SECONDS", default=20.0
             ),
         )
 
@@ -119,6 +123,13 @@ class AgentConfig:
 
 def _positive_int(name: str) -> int:
     return _bounded_int(name, minimum=1)
+
+
+def _positive_float(name: str, *, default: float | None = None) -> float:
+    value = float(os.environ[name]) if default is None or name in os.environ else default
+    if value <= 0.0:
+        raise ValueError(f"{name} must be positive")
+    return value
 
 
 def _bounded_int(name: str, *, minimum: int, maximum: int | None = None) -> int:
