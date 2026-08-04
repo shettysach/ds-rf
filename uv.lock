@@ -579,7 +579,6 @@ name = "dsrf"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "bitsandbytes" },
     { name = "dora-rs" },
     { name = "imageio" },
     { name = "numpy" },
@@ -591,6 +590,7 @@ dependencies = [
 ardy = [
     { name = "accelerate" },
     { name = "ardy" },
+    { name = "bitsandbytes" },
     { name = "transformers" },
 ]
 cpu = [
@@ -621,7 +621,7 @@ dev = [
 requires-dist = [
     { name = "accelerate", marker = "extra == 'ardy'", specifier = ">=1.0" },
     { name = "ardy", marker = "extra == 'ardy'", git = "https://github.com/shettysach/ardy?branch=main" },
-    { name = "bitsandbytes", specifier = ">=0.50.0" },
+    { name = "bitsandbytes", marker = "extra == 'ardy'", specifier = ">=0.50.0" },
     { name = "dora-rs", specifier = "==1.0.0rc4" },
     { name = "imageio", specifier = ">=2.37,<3" },
     { name = "mjlab", marker = "extra == 'cpu'", git = "https://github.com/mujocolab/mjlab?rev=15ebce8840ee2205f4c62d0c20df65dd1794cab4" },

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
+from unittest.mock import patch
 
 import mujoco.viewer
 import torch
@@ -119,7 +120,21 @@ class ViserSimViewer(ViserPlayViewer):
         )
 
     def setup(self) -> None:
-        super().setup()
+        # Reuse MJLab's scene/control initialization, then discard its GUI
+        # because the demo sidebar is intentionally VLM-only.
+        tab_groups: list[Any] = []
+        add_tab_group = self._server.gui.add_tab_group
+
+        def capture_tab_group(*args: Any, **kwargs: Any) -> Any:
+            group = add_tab_group(*args, **kwargs)
+            tab_groups.append(group)
+            return group
+
+        with patch.object(self._server.gui, "add_tab_group", capture_tab_group):
+            super().setup()
+        assert len(tab_groups) == 1
+        tab_groups[0].remove()
+
         with self._server.gui.add_folder("VLM"):
             self._vlm_panel = self._server.gui.add_markdown(
                 "## VLM\n\n**Waiting for observation…**"
