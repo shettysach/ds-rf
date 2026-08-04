@@ -22,6 +22,7 @@ def main() -> None:
         task=cfg.task,
         image_width=cfg.image_width,
         image_height=cfg.image_height,
+        goal_index=cfg.goal_index,
     )
     viewer: Optional[SimViewer] = None
 

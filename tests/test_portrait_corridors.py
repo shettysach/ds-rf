@@ -109,3 +109,19 @@ def test_portrait_assignment_is_reproducible_with_a_seed() -> None:
         }
 
     assert portrait_positions(first_spec) == portrait_positions(second_spec)
+
+
+@pytest.mark.parametrize(
+    ("goal_index", "goal_y"),
+    [(0, 2.0), (1, 0.0), (2, -2.0)],
+)
+def test_goal_index_places_bugs_in_requested_corridor(
+    goal_index: int, goal_y: float
+) -> None:
+    spec = mujoco.MjSpec()  # ty: ignore[unresolved-attribute]
+    make_portrait_corridors_spec_fn(goal_index=goal_index, seed=1234)(spec)
+
+    bugs = next(
+        body for body in spec.bodies if body.name == "portrait_corridors_bugs_portrait"
+    )
+    assert tuple(bugs.pos)[1] == pytest.approx(goal_y)

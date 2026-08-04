@@ -37,6 +37,7 @@ nodes:
       DEVICE: cuda
       SONIC_DIR: /tmp/GEAR-SONIC
       TASK: portrait-corridors
+      GOAL_INDEX: "${GOAL_INDEX:-1}"
       IMAGE_WIDTH: "640"
       IMAGE_HEIGHT: "480"
       JPEG_QUALITY: "85"

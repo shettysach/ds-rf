@@ -16,7 +16,7 @@ type SpecFn = Callable[["MjSpec"], None]
 @dataclass(frozen=True)
 class TaskDefinition:
     objective: str
-    make_spec_fn: Callable[[], SpecFn]
+    make_spec_fn: Callable[..., SpecFn]
     camera_distance: float | None = None
     camera_elevation: float | None = None
 

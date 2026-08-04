@@ -26,6 +26,7 @@ def make_sim_env_cfg(
     image_width: int = 640,
     image_height: int = 480,
     task: str | None = None,
+    goal_index: int | None = None,
 ) -> ManagerBasedRlEnvCfg:
     """Build the minimal 50 Hz MJLab environment for the simulated G1."""
 
@@ -69,7 +70,7 @@ def make_sim_env_cfg(
         entities={"robot": robot_cfg},
     )
     if task_definition is not None:
-        scene.spec_fn = task_definition.make_spec_fn()
+        scene.spec_fn = task_definition.make_spec_fn(goal_index=goal_index)
 
     camera_distance = (
         task_definition.camera_distance

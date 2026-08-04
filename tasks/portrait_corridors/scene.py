@@ -47,6 +47,7 @@ _PORTRAITS = (
 def make_portrait_corridors_spec_fn(
     *,
     seed: int | None = None,
+    goal_index: int | None = None,
     start_x: float = -2.0,
     corridor_length: float = 8.0,
     corridor_width: float = 2.0,
@@ -58,8 +59,23 @@ def make_portrait_corridors_spec_fn(
 ) -> Callable[["MjSpec"], None]:
     """Create three corridors with a randomly assigned portrait in each one."""
 
-    portraits = list(_PORTRAITS)
-    random.Random(seed).shuffle(portraits)
+    if goal_index is None:
+        portraits = list(_PORTRAITS)
+        random.Random(seed).shuffle(portraits)
+    else:
+        if not 0 <= goal_index < len(_PORTRAITS):
+            raise ValueError(
+                f"goal_index must be in [0, {len(_PORTRAITS) - 1}], got {goal_index}"
+            )
+        goal = next(portrait for portrait in _PORTRAITS if portrait.name == "bugs")
+        distractors = [
+            portrait
+            for portrait in _PORTRAITS
+            if portrait.name != goal.name
+        ]
+        random.Random(seed).shuffle(distractors)
+        portraits = list(distractors)
+        portraits.insert(goal_index, goal)
 
     def add_portrait_corridors(spec: MjSpec) -> None:
         end_x = start_x + corridor_length

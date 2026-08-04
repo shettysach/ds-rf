@@ -66,6 +66,7 @@ class SimConfig:
     reference_ghost: bool
     demo_video_path: Path | None = None
     motion_timeout_seconds: float = 20.0
+    goal_index: int | None = None
 
     @classmethod
     def from_env(cls) -> "SimConfig":
@@ -86,6 +87,7 @@ class SimConfig:
             motion_timeout_seconds=_positive_float(
                 "MOTION_TIMEOUT_SECONDS", default=20.0
             ),
+            goal_index=_optional_goal_index(),
         )
 
 
@@ -130,6 +132,16 @@ def _positive_float(name: str, *, default: float | None = None) -> float:
     if value <= 0.0:
         raise ValueError(f"{name} must be positive")
     return value
+
+
+def _optional_goal_index() -> int | None:
+    value = os.environ.get("GOAL_INDEX", "").strip()
+    if not value:
+        return None
+    index = int(value)
+    if index not in {0, 1, 2}:
+        raise ValueError(f"GOAL_INDEX must be 0, 1, or 2, got {index}")
+    return index
 
 
 def _bounded_int(name: str, *, minimum: int, maximum: int | None = None) -> int:

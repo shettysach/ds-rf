@@ -35,6 +35,7 @@ class MjlabEnv:
         image_width: int = 640,
         image_height: int = 480,
         task: str | None = None,
+        goal_index: int | None = None,
     ) -> None:
         torch_device = torch.device(device)
         self._env = ManagerBasedRlEnv(
@@ -42,6 +43,7 @@ class MjlabEnv:
                 image_width=image_width,
                 image_height=image_height,
                 task=task,
+                goal_index=goal_index,
             ),
             device=str(torch_device),
             render_mode="rgb_array",
