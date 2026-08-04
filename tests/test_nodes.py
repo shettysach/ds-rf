@@ -409,3 +409,16 @@ def test_sonic_motion_execution_has_simulation_frame_timeout() -> None:
         runtime._execute()
 
     assert simulation.steps == 2
+
+
+def test_command_signature_detects_repeated_directional_commands() -> None:
+    forward = '{"motion":"walk","direction":"forward"}'
+    left = '{"motion":"walk","direction":"left"}'
+
+    assert sim_runtime._command_signature(forward) == ("walk", "forward")
+    assert sim_runtime._command_signature(forward) == sim_runtime._command_signature(
+        '{"motion":"walk","direction":"forward"}'
+    )
+    assert sim_runtime._command_signature(forward) != sim_runtime._command_signature(
+        left
+    )

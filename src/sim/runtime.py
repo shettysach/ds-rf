@@ -26,6 +26,7 @@ from sim.viewer import SimViewer
 
 CONTROL_PERIOD = 1.0 / SONIC_FPS
 PORTRAIT_CORRIDOR_APPROACH_X = 1.0
+MAX_REPEATED_COMMANDS = 3
 
 
 @dataclass(frozen=True)
@@ -68,6 +69,8 @@ class SimRuntime:
         self._observation_published_at: float | None = None
         self.demo_vlm_state = DemoVlmState()
         self._demo_complete = False
+        self._last_command_signature: object | None = None
+        self._repeated_command_count = 0
 
     def run(self) -> None:
         render_ms, jpeg_size = self._publish_observation(completed_command=None)
@@ -120,6 +123,12 @@ class SimRuntime:
             reasoning=chunk.reasoning or "",
             command=chunk.command,
         )
+        signature = _command_signature(chunk.command)
+        if signature == self._last_command_signature:
+            self._repeated_command_count += 1
+        else:
+            self._last_command_signature = signature
+            self._repeated_command_count = 1
         if self.viewer is not None and hasattr(self.viewer, "set_vlm_result"):
             self.viewer.set_vlm_result(
                 chunk.observation_id,
@@ -135,6 +144,9 @@ class SimRuntime:
             stats = self._execute()
         except MotionExecutionTimeout as exc:
             self._handle_motion_timeout(chunk.command, str(exc))
+            return
+        if self._repeated_command_count >= MAX_REPEATED_COMMANDS:
+            self._handle_repeated_command(chunk.command)
             return
         if self._stop_recording_if_ready(chunk.command):
             return
@@ -259,6 +271,23 @@ class SimRuntime:
         )
         self._request_dataflow_stop()
 
+    def _handle_repeated_command(self, command: str) -> None:
+        self._close_recorder()
+        self._demo_complete = True
+        self.node.log(
+            "error",
+            f"[OBS {self.observation_id}] repeated command loop: "
+            f"{command!r} repeated {self._repeated_command_count} times",
+            target="dsrf.sim",
+            fields={
+                "event": "repeated_command_loop",
+                "observation_id": str(self.observation_id),
+                "command": command,
+                "count": str(self._repeated_command_count),
+            },
+        )
+        self._request_dataflow_stop()
+
     def _close_recorder(self) -> None:
         if self.recorder is None:
             return
@@ -329,3 +358,20 @@ def _is_stand_command(command: str) -> bool:
     except json.JSONDecodeError:
         return False
     return isinstance(payload, dict) and payload.get("motion") == "stand"
+
+
+def _command_signature(command: str) -> object:
+    try:
+        payload = json.loads(command)
+    except json.JSONDecodeError:
+        return command.strip()
+    if not isinstance(payload, dict):
+        return command.strip()
+    motion = payload.get("motion")
+    if motion == "walk" and "direction" in payload:
+        return ("walk", payload.get("direction"))
+    if motion == "walk" and "waypoint_2d" in payload:
+        waypoint = payload.get("waypoint_2d")
+        if isinstance(waypoint, list):
+            return ("walk", tuple(waypoint))
+    return (motion,)
