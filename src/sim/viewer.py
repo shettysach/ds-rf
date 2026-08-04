@@ -184,8 +184,8 @@ def _vlm_panel_html(
         ""
         if thinking
         else (
-            '<div style="font-size:10px;color:#94a3b8;margin-top:10px;">'
-            "DECISION</div>"
+            '<div style="font-size:10px;font-weight:700;color:#94a3b8;margin-top:10px;">'
+            "Command</div>"
             f'<div style="font-size:12px;font-weight:600;margin-top:2px;">'
             f"{command_html}</div>"
         )
@@ -193,12 +193,13 @@ def _vlm_panel_html(
     return (
         '<div style="font-family:system-ui,sans-serif;font-size:11px;'
         'line-height:1.35;padding:2px 0;">'
-        '<div style="font-size:14px;font-weight:700;margin-bottom:8px;">VLM</div>'
-        '<div style="font-size:10px;color:#94a3b8;">REASONING</div>'
+        f'<div style="font-size:11px;margin-bottom:8px;">Observation #{observation}</div>'
+        '<div style="font-size:12px;font-weight:700;margin-bottom:6px;">'
+        "VLM output</div>"
+        '<div style="font-size:10px;font-weight:700;color:#94a3b8;">'
+        "Reasoning</div>"
         '<div style="font-size:11px;line-height:1.35;max-height:180px;'
         f'overflow-y:auto;white-space:pre-wrap;margin-top:2px;">{reasoning_html}</div>'
         f"{decision}"
-        '<div style="font-size:10px;color:#94a3b8;margin-top:10px;">'
-        f"Observation #{observation}</div>"
         "</div>"
     )

@@ -32,6 +32,12 @@ class DemoVideoRecorder:
             macro_block_size=1,
         )
         self._font = ImageFont.load_default(size=10)
+        try:
+            self._bold_font = ImageFont.truetype(
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 10
+            )
+        except OSError:
+            self._bold_font = self._font
         self.frames = 0
         self._closed = False
 
@@ -46,27 +52,29 @@ class DemoVideoRecorder:
         reasoning = " ".join(reasoning.split())
         if len(reasoning) > 800:
             reasoning = reasoning[:797].rstrip() + "..."
-        lines = ["VLM", "Reasoning"]
-        lines.extend(textwrap.wrap(reasoning, width=36) or [""])
-        lines.extend(["Decision", _decision_label(state.command)])
-        lines.append(f"Observation #{state.observation_id}")
+        reasoning_lines = textwrap.wrap(reasoning, width=36) or [""]
+        entries = [
+            (f"Observation #{state.observation_id}", self._font),
+            ("VLM output", self._bold_font),
+            ("Reasoning", self._bold_font),
+            *[(line, self._font) for line in reasoning_lines],
+            ("Command", self._bold_font),
+            (_decision_label(state.command), self._font),
+        ]
 
         line_height = 13
         padding = 10
         panel_width = min(image.width - 24, max(220, int(image.width * 0.32)))
-        panel_height = padding * 2 + line_height * len(lines) + 4
+        panel_height = padding * 2 + line_height * len(entries) + 4
         draw.rounded_rectangle(
             (12, 12, 12 + panel_width, 12 + panel_height),
             radius=7,
             fill=(0, 0, 0, 200),
         )
-        draw.multiline_text(
-            (12 + padding, 12 + padding),
-            "\n".join(lines),
-            fill=(255, 255, 255, 255),
-            font=self._font,
-            spacing=1,
-        )
+        y = 12 + padding
+        for line, font in entries:
+            draw.text((12 + padding, y), line, fill=(255, 255, 255, 255), font=font)
+            y += line_height
 
         image = Image.alpha_composite(image, overlay).convert("RGB")
         self._writer.append_data(np.asarray(image))
