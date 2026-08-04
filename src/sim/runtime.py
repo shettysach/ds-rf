@@ -26,7 +26,7 @@ from sim.viewer import SimViewer
 
 CONTROL_PERIOD = 1.0 / SONIC_FPS
 PORTRAIT_CORRIDOR_APPROACH_X = 1.0
-MAX_REPEATED_COMMANDS = 3
+MAX_REPEATED_COMMANDS = 10
 
 
 @dataclass(frozen=True)
