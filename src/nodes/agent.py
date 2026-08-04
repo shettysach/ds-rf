@@ -199,14 +199,15 @@ class AgentLoop:
         )
         try:
             if self.command_mode == "direction":
-                motion, direction = _parse_planner_command(command)
-                self._send(
-                    command,
-                    motion=motion,
-                    target_xy=None,
-                    direction=direction,
-                )
-                return
+                if not _is_waypoint_command(command):
+                    motion, direction = _parse_planner_command(command)
+                    self._send(
+                        command,
+                        motion=motion,
+                        target_xy=None,
+                        direction=direction,
+                    )
+                    return
             parsed = parse_waypoint_command(command)
             if parsed.motion == "stand":
                 self._send(command, motion="stand", target_xy=None)
@@ -312,6 +313,14 @@ def _parse_planner_command(text: str) -> tuple[str, str | None]:
     if motion == "walk" and direction in {"forward", "backward", "left", "right"}:
         return "walk", direction
     raise ValueError("Unsupported planner motion or direction")
+
+
+def _is_waypoint_command(text: str) -> bool:
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return False
+    return isinstance(payload, dict) and "waypoint_2d" in payload
 
 
 if __name__ == "__main__":
