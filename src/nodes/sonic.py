@@ -9,7 +9,7 @@ from sonic.mjlab_env import SonicMjlabEnv
 from sonic.policy import SonicPolicy
 from sonic.renderer import SonicRenderer
 from sonic.runtime import SonicRuntime
-from sonic.viewer import NativeSonicViewer, SonicViewer
+from sonic.viewer import NativeSonicViewer, SonicViewer, ViserSonicViewer
 
 
 def main() -> None:
@@ -31,9 +31,13 @@ def main() -> None:
                 device=cfg.device,
                 cuda_stream=simulation.cuda_stream,
             )
-        if cfg.viewer == "native":
+        if cfg.viewer in {"native", "viser"}:
             reference = policy.reference if cfg.reference_ghost else None
-            viewer = NativeSonicViewer(simulation, reference)
+            viewer = (
+                NativeSonicViewer(simulation, reference)
+                if cfg.viewer == "native"
+                else ViserSonicViewer(simulation, reference)
+            )
         renderer = SonicRenderer(simulation, jpeg_quality=cfg.jpeg_quality)
         _log_init(node, cfg)
         SonicRuntime(node, simulation, policy, renderer, viewer).run()

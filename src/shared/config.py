@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-type ViewerMode = Literal["none", "native"]
+type ViewerMode = Literal["none", "native", "viser"]
 
 
 @dataclass(frozen=True)
@@ -130,8 +130,8 @@ def _optional_name(name: str) -> str | None:
 
 def _viewer_mode() -> ViewerMode:
     value = os.environ["DSRF_VIEWER"].strip().lower()
-    if value not in {"none", "native"}:
-        raise ValueError("DSRF_VIEWER must be 'none' or 'native'")
+    if value not in {"none", "native", "viser"}:
+        raise ValueError("DSRF_VIEWER must be 'none', 'native', or 'viser'")
     return value
 
 

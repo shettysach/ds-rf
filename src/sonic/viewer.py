@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Protocol, cast
 
 import mujoco.viewer
 import torch
-from mjlab.viewer import NativeMujocoViewer
+from mjlab.viewer import NativeMujocoViewer, ViserPlayViewer
 from mjlab.viewer.native.visualizer import MujocoNativeDebugVisualizer
 
 from shared.messages import SONIC_FPS
@@ -62,6 +62,39 @@ class NativeSonicViewer(NativeMujocoViewer):
             self._show_all_envs,
         )
         self._reference_ghost.draw(visualizer)
+
+
+class ViserSonicViewer(ViserPlayViewer):
+    """Passive MJLab Viser display that never owns simulation stepping."""
+
+    def __init__(
+        self,
+        simulation: SonicMjlabEnv,
+        reference: MotionReference | None = None,
+    ) -> None:
+        super().__init__(
+            cast("EnvProtocol", simulation),
+            _ViewerOnlyPolicy(),
+            frame_rate=float(SONIC_FPS),
+        )
+        self._reference_ghost = (
+            SonicReferenceGhost(simulation.unwrapped, reference)
+            if reference is not None
+            else None
+        )
+        self.setup()
+        self.sync()
+
+    def sync(self) -> None:
+        self.sync_env_to_viewer()
+
+    def _queue_debug_visualizers(self) -> None:
+        super()._queue_debug_visualizers()
+        if (
+            self._reference_ghost is not None
+            and self._scene.debug_visualization_enabled
+        ):
+            self._reference_ghost.draw(self._scene)
 
 
 class _ViewerOnlyPolicy:

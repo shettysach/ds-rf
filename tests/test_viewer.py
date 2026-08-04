@@ -2,10 +2,10 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from mjlab.viewer import NativeMujocoViewer
+from mjlab.viewer import NativeMujocoViewer, ViserPlayViewer
 
 import sonic.viewer as viewer_module
-from sonic.viewer import NativeSonicViewer
+from sonic.viewer import NativeSonicViewer, ViserSonicViewer
 
 
 @pytest.mark.parametrize(
@@ -48,3 +48,25 @@ def test_reference_ghost_follows_mjlab_visualizers(
     )
 
     assert calls == expected
+
+
+def test_viser_reference_ghost_follows_mjlab_visualizers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    monkeypatch.setattr(
+        ViserPlayViewer,
+        "_queue_debug_visualizers",
+        lambda self: calls.append("mjlab"),
+    )
+
+    sonic_viewer = cast(Any, ViserSonicViewer.__new__(ViserSonicViewer))
+    sonic_viewer._reference_ghost = SimpleNamespace(
+        draw=lambda visualizer: calls.append("ghost")
+    )
+    sonic_viewer._scene = SimpleNamespace(debug_visualization_enabled=True)
+
+    sonic_viewer._queue_debug_visualizers()
+
+    assert calls == ["mjlab", "ghost"]
