@@ -54,6 +54,7 @@ class SimRuntime:
         self.observation_id = 0
         self._observation_published_at: float | None = None
         self.demo_vlm_state = DemoVlmState()
+        self._demo_complete = False
 
     def run(self) -> None:
         render_ms, jpeg_size = self._publish_observation(completed_command=None)
@@ -75,6 +76,8 @@ class SimRuntime:
             if event["type"] != "INPUT" or event["id"] != "motion":
                 continue
             self._accept_motion(event)
+            if self._demo_complete:
+                return
 
     def _accept_motion(self, event: dict[str, Any]) -> None:
         received_at = time.perf_counter()
@@ -116,7 +119,8 @@ class SimRuntime:
             (received_at - published_at) * 1000.0 if published_at is not None else 0.0
         )
         stats = self._execute()
-        self._stop_recording_if_ready(chunk.command)
+        if self._stop_recording_if_ready(chunk.command):
+            return
         completed_observation_id = self.observation_id
         self.observation_id += 1
         render_ms, jpeg_size = self._publish_observation(
@@ -187,21 +191,22 @@ class SimRuntime:
                     overrun_steps += 1
                     next_step = now
 
-    def _stop_recording_if_ready(self, command: str) -> None:
+    def _stop_recording_if_ready(self, command: str) -> bool:
         if (
             self.recorder is None
             or not self.stop_recording_at_corridor
             or not _is_stand_command(command)
         ):
-            return
+            return False
         with self.simulation.compute_context():
             root_x = float(self.simulation.robot_state().root_pos_w[0].item())
         if root_x < PORTRAIT_CORRIDOR_APPROACH_X:
-            return
+            return False
 
         recorder = self.recorder
         self.recorder = None
         recorder.close()
+        self._demo_complete = True
         self.node.log(
             "info",
             "Demo recording stopped: robot is standing at the corridor approach "
@@ -213,6 +218,7 @@ class SimRuntime:
                 "command": command,
             },
         )
+        return True
 
     def _publish_observation(
         self, *, completed_command: str | None

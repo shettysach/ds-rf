@@ -369,4 +369,5 @@ def test_sonic_stops_demo_recording_after_standing_at_corridor_approach(
 
     assert recorder.frames == 2
     assert recorder.closed
+    assert [output_id for output_id, _, _ in node.outputs].count("observation") == 1
     assert any("Demo recording stopped" in message for _, message, _ in node.logs)
