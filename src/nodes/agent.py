@@ -161,7 +161,7 @@ class AgentLoop:
         )
         started_at = time.perf_counter()
         try:
-            command = self.client.complete(
+            result = self.client.complete(
                 self.observation,
                 retry_feedback=retry_feedback,
             )
@@ -183,6 +183,8 @@ class AgentLoop:
             raise
 
         vlm_ms = (time.perf_counter() - started_at) * 1000.0
+        command = getattr(result, "content", str(result))
+        reasoning = getattr(result, "reasoning", None)
         self.node.log(
             "info",
             f"[OBS {observation_id}] VLM command: {command!r} "
@@ -206,11 +208,14 @@ class AgentLoop:
                         motion=motion,
                         target_xy=None,
                         direction=direction,
+                        reasoning=reasoning,
                     )
                     return
             parsed = parse_waypoint_command(command)
             if parsed.motion == "stand":
-                self._send(command, motion="stand", target_xy=None)
+                self._send(
+                    command, motion="stand", target_xy=None, reasoning=reasoning
+                )
                 return
             if self.observation.projection is None:
                 raise ValueError("Observation has no depth projection context")
@@ -226,7 +231,12 @@ class AgentLoop:
         if self.waypoint_debug:
             self._log_waypoint(resolved)
             _write_debug_image(self.observation.jpeg, observation_id, resolved.pixel)
-        self._send(command, motion="walk", target_xy=resolved.target_xy)
+        self._send(
+            command,
+            motion="walk",
+            target_xy=resolved.target_xy,
+            reasoning=reasoning,
+        )
 
     def _send(
         self,
@@ -235,6 +245,7 @@ class AgentLoop:
         motion: str,
         target_xy: tuple[float, float] | None,
         direction: str | None = None,
+        reasoning: str | None = None,
     ) -> None:
         assert self.observation is not None
         command = AgentCommand(
@@ -243,6 +254,7 @@ class AgentLoop:
             motion,
             target_xy,
             direction,
+            reasoning,
         )
         data, metadata = agent_command_to_arrow(command)
         self.node.send_output("command", data, metadata=metadata)

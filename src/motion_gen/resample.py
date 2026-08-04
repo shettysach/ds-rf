@@ -15,6 +15,7 @@ def resample_motion(
     source_fps: float,
     observation_id: int,
     command: str,
+    reasoning: str | None = None,
 ) -> MotionChunk:
     """Resample backend qpos output to SONIC's control frequency."""
 
@@ -42,4 +43,5 @@ def resample_motion(
         observation_id=observation_id,
         command=command,
         qpos=output.numpy(),
+        reasoning=reasoning,
     )

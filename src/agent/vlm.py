@@ -9,6 +9,21 @@ from typing import Any
 from shared.messages import VisualObservation
 
 
+class VlmResult(str):
+    """Final constrained content with separately captured model reasoning."""
+
+    reasoning: str | None
+
+    def __new__(cls, content: str, reasoning: str | None = None) -> "VlmResult":
+        result = super().__new__(cls, content)
+        result.reasoning = reasoning.strip() if reasoning and reasoning.strip() else None
+        return result
+
+    @property
+    def content(self) -> str:
+        return str(self)
+
+
 @dataclass(frozen=True)
 class _ConversationTurn:
     observation: VisualObservation
@@ -39,7 +54,7 @@ class LlamaServerClient:
         observation: VisualObservation,
         *,
         retry_feedback: str | None = None,
-    ) -> str:
+    ) -> VlmResult:
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": self.system_prompt}
         ]
@@ -67,12 +82,16 @@ class LlamaServerClient:
             document = json.loads(response.read().decode("utf-8"))
 
         try:
-            content = document["choices"][0]["message"]["content"]
+            message = document["choices"][0]["message"]
+            content = message["content"]
         except (KeyError, IndexError, TypeError) as exc:
             raise RuntimeError("llama-server returned no assistant message") from exc
         if not isinstance(content, str) or not content.strip():
             raise RuntimeError("llama-server returned an empty assistant message")
-        return content.strip()
+        reasoning = message.get("reasoning_content", message.get("reasoning"))
+        if reasoning is not None and not isinstance(reasoning, str):
+            reasoning = str(reasoning)
+        return VlmResult(content.strip(), reasoning)
 
     def commit(self, observation: VisualObservation, command: str) -> None:
         # Projection depth is only needed for the current waypoint and must not

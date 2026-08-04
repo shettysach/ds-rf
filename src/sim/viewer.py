@@ -23,6 +23,12 @@ class SimViewer(Protocol):
 
     def close(self) -> None: ...
 
+    def set_vlm_thinking(self, observation_id: int) -> None: ...
+
+    def set_vlm_result(
+        self, observation_id: int, reasoning: str | None, command: str
+    ) -> None: ...
+
 
 class NativeSimViewer(NativeMujocoViewer):
     """Passive MJLab viewer that never owns simulation stepping."""
@@ -48,6 +54,14 @@ class NativeSimViewer(NativeMujocoViewer):
 
     def sync(self) -> None:
         self.sync_env_to_viewer()
+
+    def set_vlm_thinking(self, observation_id: int) -> None:
+        del observation_id
+
+    def set_vlm_result(
+        self, observation_id: int, reasoning: str | None, command: str
+    ) -> None:
+        del observation_id, reasoning, command
 
     def _update_debug_visualizers(self, viewer: mujoco.viewer.Handle) -> None:
         super()._update_debug_visualizers(viewer)
@@ -84,6 +98,32 @@ class ViserSimViewer(ViserPlayViewer):
         )
         self.setup()
         self.sync()
+
+    def set_vlm_thinking(self, observation_id: int) -> None:
+        self._vlm_panel.content = (
+            "## VLM\n\n**Thinking…**\n\n"
+            f"Observation #{observation_id}"
+        )
+
+    def set_vlm_result(
+        self, observation_id: int, reasoning: str | None, command: str
+    ) -> None:
+        reasoning_text = reasoning or "(No reasoning returned)"
+        self._vlm_panel.content = (
+            "## VLM\n\n"
+            "### Reasoning\n"
+            f"{reasoning_text}\n\n"
+            "### Decision\n"
+            f"`{command}`\n\n"
+            f"Observation #{observation_id}"
+        )
+
+    def setup(self) -> None:
+        super().setup()
+        with self._server.gui.add_folder("VLM"):
+            self._vlm_panel = self._server.gui.add_markdown(
+                "## VLM\n\n**Waiting for observation…**"
+            )
 
     def sync(self) -> None:
         self.sync_env_to_viewer()

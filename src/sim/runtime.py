@@ -91,6 +91,13 @@ class SimRuntime:
                 self._report_error(str(exc))
                 return
 
+        if self.viewer is not None and hasattr(self.viewer, "set_vlm_result"):
+            self.viewer.set_vlm_result(
+                chunk.observation_id,
+                chunk.reasoning,
+                chunk.command,
+            )
+
         published_at = self._observation_published_at
         pause_ms = (
             (received_at - published_at) * 1000.0 if published_at is not None else 0.0
@@ -177,6 +184,8 @@ class SimRuntime:
         data, metadata = observation_to_arrow(observation)
         self.node.send_output("observation", data, metadata=metadata)
         self._observation_published_at = time.perf_counter()
+        if self.viewer is not None and hasattr(self.viewer, "set_vlm_thinking"):
+            self.viewer.set_vlm_thinking(self.observation_id)
         return render_ms, len(jpeg)
 
     def _report_error(self, detail: str) -> None:

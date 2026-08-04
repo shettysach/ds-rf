@@ -54,6 +54,7 @@ class MotionChunk:
     observation_id: int
     command: str
     qpos: np.ndarray
+    reasoning: str | None = None
 
     def __post_init__(self) -> None:
         if self.observation_id < 0:
@@ -79,6 +80,7 @@ class AgentCommand:
     motion: str
     target_xy: tuple[float, float] | None
     direction: str | None = None
+    reasoning: str | None = None
 
     def __post_init__(self) -> None:
         if self.observation_id < 0:
@@ -98,6 +100,7 @@ class EncodedCommand:
     target_xy: tuple[float, float] | None
     embedding: np.ndarray
     direction: str | None = None
+    reasoning: str | None = None
 
     def __post_init__(self) -> None:
         if self.observation_id < 0:
@@ -148,10 +151,13 @@ class PipelineError:
 
 
 def motion_to_arrow(chunk: MotionChunk) -> tuple[pa.Array, dict[str, str]]:
-    return pa.array(chunk.qpos.reshape(-1), type=pa.float32()), {
+    metadata = {
         "observation_id": str(chunk.observation_id),
         "command": chunk.command,
     }
+    if chunk.reasoning is not None:
+        metadata["reasoning"] = chunk.reasoning
+    return pa.array(chunk.qpos.reshape(-1), type=pa.float32()), metadata
 
 
 def motion_from_arrow(value: pa.Array, metadata: dict[str, Any]) -> MotionChunk:
@@ -165,6 +171,7 @@ def motion_from_arrow(value: pa.Array, metadata: dict[str, Any]) -> MotionChunk:
         observation_id=_observation_id(metadata),
         command=str(metadata["command"]),
         qpos=flat.reshape(-1, MOTION_COLUMNS),
+        reasoning=_optional_string(metadata, "reasoning"),
     )
 
 
@@ -179,6 +186,8 @@ def agent_command_to_arrow(
         metadata["target_xy"] = json.dumps(command.target_xy, separators=(",", ":"))
     if command.direction is not None:
         metadata["direction"] = command.direction
+    if command.reasoning is not None:
+        metadata["reasoning"] = command.reasoning
     return pa.array([command.text], type=pa.string()), metadata
 
 
@@ -189,6 +198,7 @@ def agent_command_from_arrow(value: pa.Array, metadata: dict[str, Any]) -> Agent
         motion=str(metadata["motion"]),
         target_xy=_target_xy(metadata),
         direction=_direction(metadata),
+        reasoning=_optional_string(metadata, "reasoning"),
     )
 
 
@@ -205,6 +215,7 @@ def encoded_command_to_arrow(
             else {}
         ),
         **({"direction": command.direction} if command.direction is not None else {}),
+        **({"reasoning": command.reasoning} if command.reasoning is not None else {}),
     }
 
 
@@ -218,6 +229,7 @@ def encoded_command_from_arrow(
         target_xy=_target_xy(metadata),
         embedding=np.asarray(value.to_numpy(zero_copy_only=False), dtype=np.float32),
         direction=_direction(metadata),
+        reasoning=_optional_string(metadata, "reasoning"),
     )
 
 
@@ -359,6 +371,14 @@ def _direction(metadata: dict[str, Any]) -> str | None:
     if direction not in {"forward", "backward", "left", "right"}:
         raise ValueError("Unsupported direction")
     return direction
+
+
+def _optional_string(metadata: dict[str, Any], key: str) -> str | None:
+    value = metadata.get(key)
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def _validate_navigation(

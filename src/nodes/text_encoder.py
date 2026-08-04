@@ -55,6 +55,8 @@ def main() -> None:
             motion=request.motion,
             target_xy=request.target_xy,
             embedding=embedding,
+            direction=request.direction,
+            reasoning=request.reasoning,
         )
         value, output_metadata = encoded_command_to_arrow(encoded)
         node.send_output("encoded_command", value, metadata=output_metadata)

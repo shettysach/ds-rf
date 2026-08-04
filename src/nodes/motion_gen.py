@@ -88,6 +88,7 @@ def main() -> None:
                 source_fps=generator.fps,
                 observation_id=request.observation_id,
                 command=request.text,
+                reasoning=request.reasoning,
             )
         except Exception as exc:
             plan_ms = (time.perf_counter() - started_at) * 1000.0
