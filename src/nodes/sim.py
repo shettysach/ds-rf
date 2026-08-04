@@ -46,7 +46,15 @@ def main() -> None:
             else None
         )
         _log_init(node, cfg)
-        SimRuntime(node, simulation, policy, renderer, viewer, recorder).run()
+        SimRuntime(
+            node,
+            simulation,
+            policy,
+            renderer,
+            viewer,
+            recorder,
+            stop_recording_at_corridor=cfg.task == "portrait-corridors",
+        ).run()
     finally:
         if "recorder" in locals() and recorder is not None:
             recorder.close()

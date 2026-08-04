@@ -189,13 +189,14 @@ class _Simulation:
 
     def __init__(self) -> None:
         self.steps = 0
+        self.root_x = 0.0
 
     def compute_context(self):
         return nullcontext()
 
     def robot_state(self):
         return SimpleNamespace(
-            root_pos_w=torch.zeros(3),
+            root_pos_w=torch.tensor([self.root_x, 0.0, 0.0]),
             root_quat_w=torch.tensor([1.0, 0.0, 0.0, 0.0]),
         )
 
@@ -228,6 +229,9 @@ class _Renderer:
         self.capture_steps.append(self.simulation.steps)
         return f"jpeg-{self.simulation.steps}".encode(), _projection()
 
+    def capture_demo_rgb(self) -> np.ndarray:
+        return np.zeros((2, 2, 3), dtype=np.uint8)
+
 
 def _projection() -> ProjectionContext:
     return ProjectionContext(
@@ -253,6 +257,19 @@ class _Viewer:
 
     def close(self) -> None:
         pass
+
+
+class _Recorder:
+    def __init__(self) -> None:
+        self.frames = 0
+        self.closed = False
+
+    def write_frame(self, rgb, state) -> None:
+        del rgb, state
+        self.frames += 1
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def _motion_event(chunk: MotionChunk) -> dict[str, object]:
@@ -323,3 +340,33 @@ def test_sonic_rejects_motion_for_stale_observation() -> None:
     error = pipeline_error_from_arrow(node.outputs[-1][1])
     assert error.observation_id == 0
     assert "Expected motion for observation 0, got 3" in error.detail
+
+
+def test_sonic_stops_demo_recording_after_standing_at_corridor_approach(
+    monkeypatch,
+) -> None:
+    qpos = np.zeros((2, 36), dtype=np.float32)
+    qpos[:, 3] = 1.0
+    simulation = _Simulation()
+    simulation.root_x = 1.1
+    recorder = _Recorder()
+    node = _Node(
+        [
+            _motion_event(MotionChunk(0, '{"motion":"stand","direction":"forward"}', qpos)),
+            {"type": "STOP"},
+        ]
+    )
+    monkeypatch.setattr(sim_runtime.time, "sleep", lambda delay: None)
+
+    sim_runtime.SimRuntime(
+        cast(Any, node),
+        cast(Any, simulation),
+        cast(Any, _Policy()),
+        cast(Any, _Renderer(simulation)),
+        recorder=cast(Any, recorder),
+        stop_recording_at_corridor=True,
+    ).run()
+
+    assert recorder.frames == 2
+    assert recorder.closed
+    assert any("Demo recording stopped" in message for _, message, _ in node.logs)

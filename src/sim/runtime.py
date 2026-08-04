@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -22,6 +23,7 @@ from sim.video import DemoVideoRecorder, DemoVlmState
 from sim.viewer import SimViewer
 
 CONTROL_PERIOD = 1.0 / SONIC_FPS
+PORTRAIT_CORRIDOR_APPROACH_X = 1.0
 
 
 @dataclass(frozen=True)
@@ -40,6 +42,7 @@ class SimRuntime:
         renderer: SimRenderer,
         viewer: SimViewer | None = None,
         recorder: DemoVideoRecorder | None = None,
+        stop_recording_at_corridor: bool = False,
     ) -> None:
         self.node = node
         self.simulation = simulation
@@ -47,6 +50,7 @@ class SimRuntime:
         self.renderer = renderer
         self.viewer = viewer
         self.recorder = recorder
+        self.stop_recording_at_corridor = stop_recording_at_corridor
         self.observation_id = 0
         self._observation_published_at: float | None = None
         self.demo_vlm_state = DemoVlmState()
@@ -112,6 +116,7 @@ class SimRuntime:
             (received_at - published_at) * 1000.0 if published_at is not None else 0.0
         )
         stats = self._execute()
+        self._stop_recording_if_ready(chunk.command)
         completed_observation_id = self.observation_id
         self.observation_id += 1
         render_ms, jpeg_size = self._publish_observation(
@@ -182,6 +187,33 @@ class SimRuntime:
                     overrun_steps += 1
                     next_step = now
 
+    def _stop_recording_if_ready(self, command: str) -> None:
+        if (
+            self.recorder is None
+            or not self.stop_recording_at_corridor
+            or not _is_stand_command(command)
+        ):
+            return
+        with self.simulation.compute_context():
+            root_x = float(self.simulation.robot_state().root_pos_w[0].item())
+        if root_x < PORTRAIT_CORRIDOR_APPROACH_X:
+            return
+
+        recorder = self.recorder
+        self.recorder = None
+        recorder.close()
+        self.node.log(
+            "info",
+            "Demo recording stopped: robot is standing at the corridor approach "
+            f"(x={root_x:.2f})",
+            target="dsrf.sim",
+            fields={
+                "event": "demo_recording_stopped",
+                "root_x": f"{root_x:.3f}",
+                "command": command,
+            },
+        )
+
     def _publish_observation(
         self, *, completed_command: str | None
     ) -> tuple[float, int]:
@@ -215,3 +247,11 @@ class SimRuntime:
         )
         error = PipelineError("sim", self.observation_id, detail)
         self.node.send_output("error", pipeline_error_to_arrow(error))
+
+
+def _is_stand_command(command: str) -> bool:
+    try:
+        payload = json.loads(command)
+    except json.JSONDecodeError:
+        return False
+    return isinstance(payload, dict) and payload.get("motion") == "stand"
