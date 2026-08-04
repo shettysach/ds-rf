@@ -7,15 +7,15 @@ from shared.config import (
     ArdyConfig,
     MotionGenConfig,
     PlannerSonicConfig,
-    SonicConfig,
+    SimConfig,
     TextEncoderConfig,
 )
 
 
 def test_motion_gen_config_from_env(monkeypatch) -> None:
-    monkeypatch.setenv("DSRF_DEVICE", "cuda:0")
-    monkeypatch.setenv("DSRF_MOTION_GENERATOR", "planner_sonic")
-    monkeypatch.setenv("DSRF_PLANNER_ONNX", "/models/planner.onnx")
+    monkeypatch.setenv("DEVICE", "cuda:0")
+    monkeypatch.setenv("MOTION_GENERATOR", "planner_sonic")
+    monkeypatch.setenv("PLANNER_ONNX", "/models/planner.onnx")
 
     assert MotionGenConfig.from_env() == MotionGenConfig(
         device="cuda:0",
@@ -24,8 +24,8 @@ def test_motion_gen_config_from_env(monkeypatch) -> None:
 
 
 def test_ardy_motion_gen_config_from_env(monkeypatch) -> None:
-    monkeypatch.setenv("DSRF_DEVICE", "cpu")
-    monkeypatch.setenv("DSRF_MOTION_GENERATOR", "ardy")
+    monkeypatch.setenv("DEVICE", "cpu")
+    monkeypatch.setenv("MOTION_GENERATOR", "ardy")
     monkeypatch.setenv("CHECKPOINTS_DIR", "/models/ardy")
 
     assert MotionGenConfig.from_env() == MotionGenConfig(
@@ -37,15 +37,15 @@ def test_ardy_motion_gen_config_from_env(monkeypatch) -> None:
 
 
 def test_ardy_motion_gen_config_requires_no_fixed_conditioning(monkeypatch) -> None:
-    monkeypatch.setenv("DSRF_DEVICE", "cuda:0")
-    monkeypatch.setenv("DSRF_MOTION_GENERATOR", "ardy")
+    monkeypatch.setenv("DEVICE", "cuda:0")
+    monkeypatch.setenv("MOTION_GENERATOR", "ardy")
     monkeypatch.setenv("CHECKPOINTS_DIR", "/models/ardy")
     assert MotionGenConfig.from_env().backend == ArdyConfig(Path("/models/ardy"))
 
 
 def test_text_encoder_config_from_env(monkeypatch) -> None:
-    monkeypatch.setenv("DSRF_DEVICE", "cuda:0")
-    monkeypatch.setenv("DSRF_TEXT_ENCODER_MODEL", "/models/text-encoder")
+    monkeypatch.setenv("DEVICE", "cuda:0")
+    monkeypatch.setenv("TEXT_ENCODER_MODEL", "/models/text-encoder")
 
     assert TextEncoderConfig.from_env() == TextEncoderConfig(
         model=Path("/models/text-encoder"),
@@ -54,24 +54,24 @@ def test_text_encoder_config_from_env(monkeypatch) -> None:
 
 
 def test_motion_gen_config_rejects_unknown_backend(monkeypatch) -> None:
-    monkeypatch.setenv("DSRF_DEVICE", "cpu")
-    monkeypatch.setenv("DSRF_MOTION_GENERATOR", "unknown")
+    monkeypatch.setenv("DEVICE", "cpu")
+    monkeypatch.setenv("MOTION_GENERATOR", "unknown")
 
-    with pytest.raises(ValueError, match="DSRF_MOTION_GENERATOR"):
+    with pytest.raises(ValueError, match="MOTION_GENERATOR"):
         MotionGenConfig.from_env()
 
 
-def test_sonic_config_from_env(monkeypatch) -> None:
-    monkeypatch.setenv("DSRF_DEVICE", "cpu")
-    monkeypatch.setenv("DSRF_SONIC_DIR", "/models/sonic")
-    monkeypatch.setenv("DSRF_TASK", "portrait-corridors")
-    monkeypatch.setenv("DSRF_IMAGE_WIDTH", "640")
-    monkeypatch.setenv("DSRF_IMAGE_HEIGHT", "480")
-    monkeypatch.setenv("DSRF_JPEG_QUALITY", "85")
-    monkeypatch.setenv("DSRF_VIEWER", "native")
-    monkeypatch.setenv("DSRF_REFERENCE_GHOST", "true")
+def test_sim_config_from_env(monkeypatch) -> None:
+    monkeypatch.setenv("DEVICE", "cpu")
+    monkeypatch.setenv("SONIC_DIR", "/models/sonic")
+    monkeypatch.setenv("TASK", "portrait-corridors")
+    monkeypatch.setenv("IMAGE_WIDTH", "640")
+    monkeypatch.setenv("IMAGE_HEIGHT", "480")
+    monkeypatch.setenv("JPEG_QUALITY", "85")
+    monkeypatch.setenv("VIEWER", "native")
+    monkeypatch.setenv("REFERENCE_GHOST", "true")
 
-    assert SonicConfig.from_env() == SonicConfig(
+    assert SimConfig.from_env() == SimConfig(
         sonic_dir=Path("/models/sonic"),
         device="cpu",
         task="portrait-corridors",
@@ -83,52 +83,52 @@ def test_sonic_config_from_env(monkeypatch) -> None:
     )
 
 
-def test_sonic_config_accepts_viser_viewer(monkeypatch) -> None:
-    monkeypatch.setenv("DSRF_DEVICE", "cpu")
-    monkeypatch.setenv("DSRF_SONIC_DIR", "/models/sonic")
-    monkeypatch.setenv("DSRF_TASK", "none")
-    monkeypatch.setenv("DSRF_IMAGE_WIDTH", "640")
-    monkeypatch.setenv("DSRF_IMAGE_HEIGHT", "480")
-    monkeypatch.setenv("DSRF_JPEG_QUALITY", "85")
-    monkeypatch.setenv("DSRF_VIEWER", "viser")
-    monkeypatch.setenv("DSRF_REFERENCE_GHOST", "false")
+def test_sim_config_accepts_viser_viewer(monkeypatch) -> None:
+    monkeypatch.setenv("DEVICE", "cpu")
+    monkeypatch.setenv("SONIC_DIR", "/models/sonic")
+    monkeypatch.setenv("TASK", "none")
+    monkeypatch.setenv("IMAGE_WIDTH", "640")
+    monkeypatch.setenv("IMAGE_HEIGHT", "480")
+    monkeypatch.setenv("JPEG_QUALITY", "85")
+    monkeypatch.setenv("VIEWER", "viser")
+    monkeypatch.setenv("REFERENCE_GHOST", "false")
 
-    assert SonicConfig.from_env().viewer == "viser"
-
-
-def test_sonic_config_rejects_unknown_viewer(monkeypatch) -> None:
-    monkeypatch.setenv("DSRF_DEVICE", "cpu")
-    monkeypatch.setenv("DSRF_SONIC_DIR", "/models/sonic")
-    monkeypatch.setenv("DSRF_TASK", "none")
-    monkeypatch.setenv("DSRF_IMAGE_WIDTH", "640")
-    monkeypatch.setenv("DSRF_IMAGE_HEIGHT", "480")
-    monkeypatch.setenv("DSRF_JPEG_QUALITY", "85")
-    monkeypatch.setenv("DSRF_VIEWER", "unknown")
-    monkeypatch.setenv("DSRF_REFERENCE_GHOST", "false")
-
-    with pytest.raises(ValueError, match="DSRF_VIEWER"):
-        SonicConfig.from_env()
+    assert SimConfig.from_env().viewer == "viser"
 
 
-def test_sonic_config_rejects_invalid_reference_ghost(monkeypatch) -> None:
-    monkeypatch.setenv("DSRF_DEVICE", "cpu")
-    monkeypatch.setenv("DSRF_SONIC_DIR", "/models/sonic")
-    monkeypatch.setenv("DSRF_TASK", "none")
-    monkeypatch.setenv("DSRF_IMAGE_WIDTH", "640")
-    monkeypatch.setenv("DSRF_IMAGE_HEIGHT", "480")
-    monkeypatch.setenv("DSRF_JPEG_QUALITY", "85")
-    monkeypatch.setenv("DSRF_VIEWER", "native")
-    monkeypatch.setenv("DSRF_REFERENCE_GHOST", "yes")
+def test_sim_config_rejects_unknown_viewer(monkeypatch) -> None:
+    monkeypatch.setenv("DEVICE", "cpu")
+    monkeypatch.setenv("SONIC_DIR", "/models/sonic")
+    monkeypatch.setenv("TASK", "none")
+    monkeypatch.setenv("IMAGE_WIDTH", "640")
+    monkeypatch.setenv("IMAGE_HEIGHT", "480")
+    monkeypatch.setenv("JPEG_QUALITY", "85")
+    monkeypatch.setenv("VIEWER", "unknown")
+    monkeypatch.setenv("REFERENCE_GHOST", "false")
 
-    with pytest.raises(ValueError, match="DSRF_REFERENCE_GHOST"):
-        SonicConfig.from_env()
+    with pytest.raises(ValueError, match="VIEWER"):
+        SimConfig.from_env()
+
+
+def test_sim_config_rejects_invalid_reference_ghost(monkeypatch) -> None:
+    monkeypatch.setenv("DEVICE", "cpu")
+    monkeypatch.setenv("SONIC_DIR", "/models/sonic")
+    monkeypatch.setenv("TASK", "none")
+    monkeypatch.setenv("IMAGE_WIDTH", "640")
+    monkeypatch.setenv("IMAGE_HEIGHT", "480")
+    monkeypatch.setenv("JPEG_QUALITY", "85")
+    monkeypatch.setenv("VIEWER", "native")
+    monkeypatch.setenv("REFERENCE_GHOST", "yes")
+
+    with pytest.raises(ValueError, match="REFERENCE_GHOST"):
+        SimConfig.from_env()
 
 
 def test_agent_config_from_env(monkeypatch) -> None:
-    monkeypatch.setenv("DSRF_VLM_URL", "http://127.0.0.1:8080/")
-    monkeypatch.setenv("DSRF_VLM_TIMEOUT", "12.5")
-    monkeypatch.setenv("DSRF_VLM_SYSTEM_PROMPT", "/prompts/system.md")
-    monkeypatch.setenv("DSRF_VLM_USER_PROMPT", "/prompts/user.md")
+    monkeypatch.setenv("VLM_URL", "http://127.0.0.1:8080/")
+    monkeypatch.setenv("VLM_TIMEOUT", "12.5")
+    monkeypatch.setenv("VLM_SYSTEM_PROMPT", "/prompts/system.md")
+    monkeypatch.setenv("VLM_USER_PROMPT", "/prompts/user.md")
 
     assert AgentConfig.from_env() == AgentConfig(
         vlm_url="http://127.0.0.1:8080",
@@ -141,9 +141,9 @@ def test_agent_config_from_env(monkeypatch) -> None:
 
 
 def test_missing_runtime_value_fails(monkeypatch) -> None:
-    monkeypatch.delenv("DSRF_PLANNER_ONNX", raising=False)
-    monkeypatch.setenv("DSRF_MOTION_GENERATOR", "planner_sonic")
-    monkeypatch.setenv("DSRF_DEVICE", "cpu")
+    monkeypatch.delenv("PLANNER_ONNX", raising=False)
+    monkeypatch.setenv("MOTION_GENERATOR", "planner_sonic")
+    monkeypatch.setenv("DEVICE", "cpu")
 
-    with pytest.raises(KeyError, match="DSRF_PLANNER_ONNX"):
+    with pytest.raises(KeyError, match="PLANNER_ONNX"):
         MotionGenConfig.from_env()

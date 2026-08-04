@@ -9,7 +9,7 @@ import pytest
 import torch
 
 import nodes.motion_gen as motion_gen_node
-import sonic.runtime as sonic_runtime
+import sim.runtime as sim_runtime
 from shared.config import PlannerSonicConfig
 from shared.messages import (
     AgentCommand,
@@ -274,9 +274,9 @@ def test_sonic_steps_final_action_before_capture(monkeypatch) -> None:
     policy = _Policy()
     renderer = _Renderer(simulation)
     viewer = _Viewer(simulation)
-    monkeypatch.setattr(sonic_runtime.time, "sleep", lambda delay: None)
+    monkeypatch.setattr(sim_runtime.time, "sleep", lambda delay: None)
 
-    runtime = sonic_runtime.SonicRuntime(
+    runtime = sim_runtime.SimRuntime(
         cast(Any, node),
         cast(Any, simulation),
         cast(Any, policy),
@@ -305,7 +305,7 @@ def test_sonic_steps_final_action_before_capture(monkeypatch) -> None:
 def test_sonic_rejects_motion_for_stale_observation() -> None:
     node = _Node([])
     simulation = _Simulation()
-    runtime = sonic_runtime.SonicRuntime(
+    runtime = sim_runtime.SimRuntime(
         cast(Any, node),
         cast(Any, simulation),
         cast(Any, _Policy()),

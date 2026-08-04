@@ -43,8 +43,8 @@ Run OpenAI compatible VLM inference server.
 dora run demo.yml
 ```
 
-- Set `DSRF_VIEWER=none` to disable the window for headless runs.
-- Set `DSRF_REFERENCE_GHOST=true` to show the active motion reference in the
+- Set `VIEWER=none` to disable the window for headless runs.
+- Set `REFERENCE_GHOST=true` to show the active motion reference in the
   native viewer.
 
 ## ARDY closed loop
@@ -55,7 +55,7 @@ It generates a five-second reference and carries ARDY's generated
 history into the next request:
 
 ```bash
-export DSRF_TEXT_ENCODER_MODEL=~/Desktop/encoding/model/
+export TEXT_ENCODER_MODEL=~/Desktop/encoding/model/
 export CHECKPOINTS_DIR=/tmp/checkpoints/
 dora run ardy.yml
 ```

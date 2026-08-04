@@ -3,12 +3,12 @@ from typing import Any, cast
 
 import numpy as np
 
-from sonic.mjlab_env import SonicMjlabEnv
+from sim.env import MjlabEnv
 
 
 def test_render_keeps_camera_azimuth_fixed() -> None:
     renderer = SimpleNamespace(_cam=SimpleNamespace(azimuth=10.0))
-    simulation = cast(Any, SonicMjlabEnv.__new__(SonicMjlabEnv))
+    simulation = cast(Any, MjlabEnv.__new__(MjlabEnv))
     simulation.cuda_stream = None
     simulation._env = SimpleNamespace(
         _offline_renderer=renderer,

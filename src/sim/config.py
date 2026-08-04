@@ -21,13 +21,13 @@ from mjlab.viewer import ViewerConfig
 from tasks.catalog import get_task
 
 
-def make_sonic_env_cfg(
+def make_sim_env_cfg(
     *,
     image_width: int = 640,
     image_height: int = 480,
     task: str | None = None,
 ) -> ManagerBasedRlEnvCfg:
-    """Build a minimal 50 Hz MJLab environment matching SONIC's G1 motors."""
+    """Build the minimal 50 Hz MJLab environment for the simulated G1."""
 
     actuator_7520_14 = replace(
         G1_ACTUATOR_7520_14,

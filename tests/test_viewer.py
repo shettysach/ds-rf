@@ -4,8 +4,8 @@ from typing import Any, cast
 import pytest
 from mjlab.viewer import NativeMujocoViewer, ViserPlayViewer
 
-import sonic.viewer as viewer_module
-from sonic.viewer import NativeSonicViewer, ViserSonicViewer
+import sim.viewer as viewer_module
+from sim.viewer import NativeSimViewer, ViserSimViewer
 
 
 @pytest.mark.parametrize(
@@ -34,7 +34,7 @@ def test_reference_ghost_follows_mjlab_visualizers(
         lambda *args: calls.append("visualizer") or debug_visualizer,
     )
 
-    sonic_viewer = cast(Any, NativeSonicViewer.__new__(NativeSonicViewer))
+    sonic_viewer = cast(Any, NativeSimViewer.__new__(NativeSimViewer))
     sonic_viewer._reference_ghost = SimpleNamespace(
         draw=lambda visualizer: calls.append("ghost")
     )
@@ -61,7 +61,7 @@ def test_viser_reference_ghost_follows_mjlab_visualizers(
         lambda self: calls.append("mjlab"),
     )
 
-    sonic_viewer = cast(Any, ViserSonicViewer.__new__(ViserSonicViewer))
+    sonic_viewer = cast(Any, ViserSimViewer.__new__(ViserSimViewer))
     sonic_viewer._reference_ghost = SimpleNamespace(
         draw=lambda visualizer: calls.append("ghost")
     )

@@ -9,13 +9,13 @@ if TYPE_CHECKING:
     from mjlab.envs import ManagerBasedRlEnv
     from mjlab.viewer.debug_visualizer import DebugVisualizer
 
-    from sonic.policy import MotionReference
+    from sim.sonic.policy import MotionReference
 
 REFERENCE_GHOST_COLOR = np.array((0.5, 0.7, 0.5, 0.5), dtype=np.float32)
 
 
-class SonicReferenceGhost:
-    """Draw SONIC's active reference through MJLab's debug visualizer."""
+class ReferenceGhost:
+    """Draw the active controller reference through MJLab's debug visualizer."""
 
     def __init__(
         self,

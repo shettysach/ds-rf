@@ -15,10 +15,10 @@ from shared.messages import (
     observation_to_arrow,
     pipeline_error_to_arrow,
 )
-from sonic.mjlab_env import SonicMjlabEnv
-from sonic.policy import SonicPolicy
-from sonic.renderer import SonicRenderer
-from sonic.viewer import SonicViewer
+from sim.env import MjlabEnv
+from sim.renderer import SimRenderer
+from sim.sonic.policy import SonicPolicy
+from sim.viewer import SimViewer
 
 CONTROL_PERIOD = 1.0 / SONIC_FPS
 
@@ -30,14 +30,14 @@ class ExecutionStats:
     overrun_steps: int
 
 
-class SonicRuntime:
+class SimRuntime:
     def __init__(
         self,
         node: Node,
-        simulation: SonicMjlabEnv,
+        simulation: MjlabEnv,
         policy: SonicPolicy,
-        renderer: SonicRenderer,
-        viewer: SonicViewer | None = None,
+        renderer: SimRenderer,
+        viewer: SimViewer | None = None,
     ) -> None:
         self.node = node
         self.simulation = simulation
@@ -53,7 +53,7 @@ class SonicRuntime:
             "info",
             f"[OBS 0] initial observation: render_ms={render_ms:.1f} "
             f"jpeg_kb={jpeg_size / 1024.0:.1f} waiting=motion",
-            target="dsrf.sonic",
+            target="dsrf.sim",
             fields={
                 "event": "initial_observation",
                 "observation_id": "0",
@@ -110,7 +110,7 @@ class SonicRuntime:
             f"frames={stats.frames} target_ms={target_ms:.1f} "
             f"exec_ms={stats.elapsed_ms:.1f} realtime={realtime:.3f} "
             f"render_ms={render_ms:.1f}",
-            target="dsrf.sonic",
+            target="dsrf.sim",
             fields={
                 "event": "motion_complete",
                 "observation_id": str(completed_observation_id),
@@ -183,13 +183,13 @@ class SonicRuntime:
         self.node.log(
             "error",
             f"[OBS {self.observation_id}] SONIC error: {detail}",
-            target="dsrf.sonic",
+            target="dsrf.sim",
             fields={
                 "event": "pipeline_error",
                 "observation_id": str(self.observation_id),
-                "source": "sonic",
+                "source": "sim",
                 "detail": detail,
             },
         )
-        error = PipelineError("sonic", self.observation_id, detail)
+        error = PipelineError("sim", self.observation_id, detail)
         self.node.send_output("error", pipeline_error_to_arrow(error))

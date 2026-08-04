@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from sonic.observations import ObservationLayout
+from sim.observations import ObservationLayout
 
 SONIC_DIR = Path("/tmp/GEAR-SONIC")
 

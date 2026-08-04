@@ -4,25 +4,25 @@ from typing import Optional
 
 from dora import Node
 
-from shared.config import SonicConfig
-from sonic.mjlab_env import SonicMjlabEnv
-from sonic.policy import SonicPolicy
-from sonic.renderer import SonicRenderer
-from sonic.runtime import SonicRuntime
-from sonic.viewer import NativeSonicViewer, SonicViewer, ViserSonicViewer
+from shared.config import SimConfig
+from sim.env import MjlabEnv
+from sim.renderer import SimRenderer
+from sim.runtime import SimRuntime
+from sim.sonic.policy import SonicPolicy
+from sim.viewer import NativeSimViewer, SimViewer, ViserSimViewer
 
 
 def main() -> None:
-    cfg = SonicConfig.from_env()
+    cfg = SimConfig.from_env()
 
     node = Node()
-    simulation = SonicMjlabEnv(
+    simulation = MjlabEnv(
         device=cfg.device,
         task=cfg.task,
         image_width=cfg.image_width,
         image_height=cfg.image_height,
     )
-    viewer: Optional[SonicViewer] = None
+    viewer: Optional[SimViewer] = None
 
     try:
         with simulation.compute_context():
@@ -34,26 +34,26 @@ def main() -> None:
         if cfg.viewer in {"native", "viser"}:
             reference = policy.reference if cfg.reference_ghost else None
             viewer = (
-                NativeSonicViewer(simulation, reference)
+                NativeSimViewer(simulation, reference)
                 if cfg.viewer == "native"
-                else ViserSonicViewer(simulation, reference)
+                else ViserSimViewer(simulation, reference)
             )
-        renderer = SonicRenderer(simulation, jpeg_quality=cfg.jpeg_quality)
+        renderer = SimRenderer(simulation, jpeg_quality=cfg.jpeg_quality)
         _log_init(node, cfg)
-        SonicRuntime(node, simulation, policy, renderer, viewer).run()
+        SimRuntime(node, simulation, policy, renderer, viewer).run()
     finally:
         if viewer is not None:
             viewer.close()
         simulation.close()
 
 
-def _log_init(node: Node, cfg: SonicConfig) -> None:
+def _log_init(node: Node, cfg: SimConfig) -> None:
     node.log(
         "info",
-        "SONIC initialized",
-        target="dsrf.sonic",
+        "Simulation initialized",
+        target="dsrf.sim",
         fields={
-            "event": "sonic_initialized",
+            "event": "sim_initialized",
             "task": cfg.task or "none",
             "device": cfg.device,
             "viewer": cfg.viewer,

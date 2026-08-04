@@ -6,11 +6,11 @@ import imageio.v3 as iio
 import numpy as np
 
 from shared.messages import ProjectionContext
-from sonic.mjlab_env import SonicMjlabEnv
+from sim.env import MjlabEnv
 
 
-class SonicRenderer:
-    def __init__(self, simulation: SonicMjlabEnv, *, jpeg_quality: int) -> None:
+class SimRenderer:
+    def __init__(self, simulation: MjlabEnv, *, jpeg_quality: int) -> None:
         self.simulation = simulation
         self.jpeg_quality = jpeg_quality
 

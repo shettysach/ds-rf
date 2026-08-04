@@ -3,7 +3,7 @@ from typing import Any, cast
 
 import torch
 
-from sonic.onnx_runner import OnnxModel
+from sim.sonic.onnx_runner import OnnxModel
 
 
 class _Binding:

@@ -39,7 +39,7 @@ cu128 = [
 [project.scripts]
 dsrf-agent = "nodes.agent:main"
 dsrf-motion-gen = "nodes.motion_gen:main"
-dsrf-sonic = "nodes.sonic:main"
+dsrf-sim = "nodes.sim:main"
 dsrf-text-encoder = "nodes.text_encoder:main"
 
 [dependency-groups]
@@ -91,7 +91,7 @@ packages = [
     "src/motion_gen",
     "src/nodes",
     "src/shared",
-    "src/sonic",
+    "src/sim",
     "src/text_encoder",
     "tasks",
 ]

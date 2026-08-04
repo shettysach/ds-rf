@@ -5,8 +5,8 @@ import numpy as np
 import torch
 
 from shared.messages import MotionChunk
-from sonic.policy import MotionReference
-from sonic.reference_ghost import SonicReferenceGhost
+from sim.reference_ghost import ReferenceGhost
+from sim.sonic.policy import MotionReference
 
 
 def _motion() -> MotionChunk:
@@ -97,7 +97,7 @@ def test_reference_ghost_builds_model_qpos_and_hides_collision_geoms() -> None:
     )
     visualizer = _RecordingVisualizer()
 
-    ghost = SonicReferenceGhost(cast(Any, env), reference)
+    ghost = ReferenceGhost(cast(Any, env), reference)
     ghost.draw(cast(Any, visualizer))
 
     assert len(visualizer.ghosts) == 1

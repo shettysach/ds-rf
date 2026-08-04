@@ -54,7 +54,7 @@ class AgentLoop:
                         event["value"], dict(event.get("metadata") or {})
                     )
                 )
-            elif event["id"] in {"planning_error", "encoding_error", "sonic_error"}:
+            elif event["id"] in {"planning_error", "encoding_error", "sim_error"}:
                 self._accept_error(pipeline_error_from_arrow(event["value"]))
 
     def _accept_observation(self, observation: VisualObservation) -> None:

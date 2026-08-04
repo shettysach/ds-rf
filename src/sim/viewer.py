@@ -12,24 +12,24 @@ from shared.messages import SONIC_FPS
 if TYPE_CHECKING:
     from mjlab.viewer import EnvProtocol
 
-    from sonic.mjlab_env import SonicMjlabEnv
-    from sonic.policy import MotionReference
+    from sim.env import MjlabEnv
+    from sim.sonic.policy import MotionReference
 
-from sonic.reference_ghost import SonicReferenceGhost
+from sim.reference_ghost import ReferenceGhost
 
 
-class SonicViewer(Protocol):
+class SimViewer(Protocol):
     def sync(self) -> None: ...
 
     def close(self) -> None: ...
 
 
-class NativeSonicViewer(NativeMujocoViewer):
+class NativeSimViewer(NativeMujocoViewer):
     """Passive MJLab viewer that never owns simulation stepping."""
 
     def __init__(
         self,
-        simulation: SonicMjlabEnv,
+        simulation: MjlabEnv,
         reference: MotionReference | None = None,
     ) -> None:
         super().__init__(
@@ -39,7 +39,7 @@ class NativeSonicViewer(NativeMujocoViewer):
             enable_perturbations=False,
         )
         self._reference_ghost = (
-            SonicReferenceGhost(simulation.unwrapped, reference)
+            ReferenceGhost(simulation.unwrapped, reference)
             if reference is not None
             else None
         )
@@ -64,12 +64,12 @@ class NativeSonicViewer(NativeMujocoViewer):
         self._reference_ghost.draw(visualizer)
 
 
-class ViserSonicViewer(ViserPlayViewer):
+class ViserSimViewer(ViserPlayViewer):
     """Passive MJLab Viser display that never owns simulation stepping."""
 
     def __init__(
         self,
-        simulation: SonicMjlabEnv,
+        simulation: MjlabEnv,
         reference: MotionReference | None = None,
     ) -> None:
         super().__init__(
@@ -78,7 +78,7 @@ class ViserSonicViewer(ViserPlayViewer):
             frame_rate=float(SONIC_FPS),
         )
         self._reference_ghost = (
-            SonicReferenceGhost(simulation.unwrapped, reference)
+            ReferenceGhost(simulation.unwrapped, reference)
             if reference is not None
             else None
         )
@@ -102,4 +102,4 @@ class _ViewerOnlyPolicy:
 
     def __call__(self, obs: object) -> torch.Tensor:
         del obs
-        raise RuntimeError("The SONIC passive viewer cannot drive physics")
+        raise RuntimeError("The passive simulation viewer cannot drive physics")

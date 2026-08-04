@@ -3,7 +3,7 @@ import pytest
 from tasks.catalog import TASKS, get_task
 from tasks.portrait_corridors import make_portrait_corridors_spec_fn
 
-from sonic.mjlab_config import make_sonic_env_cfg
+from sim.config import make_sim_env_cfg
 
 
 def test_catalog_contains_portrait_corridors() -> None:
@@ -21,8 +21,8 @@ def test_catalog_rejects_unknown_task() -> None:
 
 
 def test_sonic_config_applies_task_scene_and_camera_distance() -> None:
-    task_cfg = make_sonic_env_cfg(task="portrait-corridors")
-    plain_cfg = make_sonic_env_cfg(task=None)
+    task_cfg = make_sim_env_cfg(task="portrait-corridors")
+    plain_cfg = make_sim_env_cfg(task=None)
 
     assert task_cfg.scene.spec_fn is not None
     assert task_cfg.viewer.distance == 3.5
@@ -33,7 +33,7 @@ def test_sonic_config_applies_task_scene_and_camera_distance() -> None:
 
 
 def test_sonic_config_uses_third_person_torso_camera() -> None:
-    camera = make_sonic_env_cfg().viewer
+    camera = make_sim_env_cfg().viewer
 
     assert camera.origin_type == camera.OriginType.ASSET_BODY
     assert camera.entity_name == "robot"

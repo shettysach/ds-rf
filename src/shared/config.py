@@ -18,15 +18,15 @@ class MotionGenConfig:
         generator = _motion_generator()
         if generator == "ardy":
             return cls(
-                device=os.environ["DSRF_DEVICE"],
+                device=os.environ["DEVICE"],
                 backend=ArdyConfig(
                     checkpoints_dir=Path(os.environ["CHECKPOINTS_DIR"]),
                 ),
             )
         return cls(
-            device=os.environ["DSRF_DEVICE"],
+            device=os.environ["DEVICE"],
             backend=PlannerSonicConfig(
-                planner_onnx=Path(os.environ["DSRF_PLANNER_ONNX"]),
+                planner_onnx=Path(os.environ["PLANNER_ONNX"]),
             ),
         )
 
@@ -49,13 +49,13 @@ class TextEncoderConfig:
     @classmethod
     def from_env(cls) -> "TextEncoderConfig":
         return cls(
-            model=Path(os.environ["DSRF_TEXT_ENCODER_MODEL"]),
-            device=os.environ["DSRF_DEVICE"],
+            model=Path(os.environ["TEXT_ENCODER_MODEL"]),
+            device=os.environ["DEVICE"],
         )
 
 
 @dataclass(frozen=True)
-class SonicConfig:
+class SimConfig:
     sonic_dir: Path
     device: str
     task: str | None
@@ -66,16 +66,16 @@ class SonicConfig:
     reference_ghost: bool
 
     @classmethod
-    def from_env(cls) -> "SonicConfig":
+    def from_env(cls) -> "SimConfig":
         return cls(
-            sonic_dir=Path(os.environ["DSRF_SONIC_DIR"]),
-            device=os.environ["DSRF_DEVICE"],
-            task=_optional_name("DSRF_TASK"),
-            image_width=_positive_int("DSRF_IMAGE_WIDTH"),
-            image_height=_positive_int("DSRF_IMAGE_HEIGHT"),
-            jpeg_quality=_bounded_int("DSRF_JPEG_QUALITY", minimum=1, maximum=100),
+            sonic_dir=Path(os.environ["SONIC_DIR"]),
+            device=os.environ["DEVICE"],
+            task=_optional_name("TASK"),
+            image_width=_positive_int("IMAGE_WIDTH"),
+            image_height=_positive_int("IMAGE_HEIGHT"),
+            jpeg_quality=_bounded_int("JPEG_QUALITY", minimum=1, maximum=100),
             viewer=_viewer_mode(),
-            reference_ghost=_boolean("DSRF_REFERENCE_GHOST"),
+            reference_ghost=_boolean("REFERENCE_GHOST"),
         )
 
 
@@ -90,21 +90,21 @@ class AgentConfig:
 
     @classmethod
     def from_env(cls) -> "AgentConfig":
-        url = os.environ["DSRF_VLM_URL"].strip().rstrip("/")
+        url = os.environ["VLM_URL"].strip().rstrip("/")
         if not url:
-            raise ValueError("DSRF_VLM_URL must not be empty")
-        timeout = float(os.environ["DSRF_VLM_TIMEOUT"])
+            raise ValueError("VLM_URL must not be empty")
+        timeout = float(os.environ["VLM_TIMEOUT"])
         if timeout <= 0.0:
-            raise ValueError("DSRF_VLM_TIMEOUT must be positive")
+            raise ValueError("VLM_TIMEOUT must be positive")
         return cls(
             vlm_url=url,
             vlm_timeout=timeout,
-            system_prompt=Path(os.environ["DSRF_VLM_SYSTEM_PROMPT"]),
-            user_prompt=Path(os.environ["DSRF_VLM_USER_PROMPT"]),
-            waypoint_debug=_optional_boolean("DSRF_WAYPOINT_DEBUG", default=False),
+            system_prompt=Path(os.environ["VLM_SYSTEM_PROMPT"]),
+            user_prompt=Path(os.environ["VLM_USER_PROMPT"]),
+            waypoint_debug=_optional_boolean("WAYPOINT_DEBUG", default=False),
             command_mode=(
                 "direction"
-                if os.environ.get("DSRF_MOTION_GENERATOR", "").strip().lower()
+                if os.environ.get("MOTION_GENERATOR", "").strip().lower()
                 == "planner_sonic"
                 else "waypoint"
             ),
@@ -129,16 +129,16 @@ def _optional_name(name: str) -> str | None:
 
 
 def _viewer_mode() -> ViewerMode:
-    value = os.environ["DSRF_VIEWER"].strip().lower()
+    value = os.environ["VIEWER"].strip().lower()
     if value not in {"none", "native", "viser"}:
-        raise ValueError("DSRF_VIEWER must be 'none', 'native', or 'viser'")
+        raise ValueError("VIEWER must be 'none', 'native', or 'viser'")
     return value
 
 
 def _motion_generator() -> Literal["planner_sonic", "ardy"]:
-    value = os.environ["DSRF_MOTION_GENERATOR"].strip().lower()
+    value = os.environ["MOTION_GENERATOR"].strip().lower()
     if value not in {"planner_sonic", "ardy"}:
-        raise ValueError("DSRF_MOTION_GENERATOR must be 'planner_sonic' or 'ardy'")
+        raise ValueError("MOTION_GENERATOR must be 'planner_sonic' or 'ardy'")
     return value
 
 

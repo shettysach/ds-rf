@@ -8,9 +8,9 @@ import torch
 from motion_gen.planner_sonic import PlannerSonic
 from motion_gen.resample import resample_motion
 from shared.g1 import DEFAULT_JOINT_POS_MJLAB
-from sonic.mjlab_env import RobotState, SonicMjlabEnv
-from sonic.policy import SonicPolicy
-from sonic.renderer import SonicRenderer
+from sim.env import MjlabEnv, RobotState
+from sim.renderer import SimRenderer
+from sim.sonic.policy import SonicPolicy
 
 SONIC_DIR = Path("/tmp/GEAR-SONIC")
 
@@ -54,7 +54,7 @@ def test_real_checkpoints_generate_action_and_motion() -> None:
 
 @pytest.mark.skipif(not SONIC_DIR.is_dir(), reason="SONIC bundle is unavailable")
 def test_mjlab_cpu_control_step() -> None:
-    simulation = SonicMjlabEnv(device="cpu")
+    simulation = MjlabEnv(device="cpu")
     try:
         policy = SonicPolicy(SONIC_DIR)
         action, _ = policy.infer(simulation.robot_state())
@@ -67,13 +67,13 @@ def test_mjlab_cpu_control_step() -> None:
 
 @pytest.mark.skipif(not SONIC_DIR.is_dir(), reason="SONIC bundle is unavailable")
 def test_mjlab_offscreen_capture_is_synchronized_rgbd() -> None:
-    simulation = SonicMjlabEnv(
+    simulation = MjlabEnv(
         device="cpu",
         image_width=160,
         image_height=120,
     )
     try:
-        jpeg, projection = SonicRenderer(simulation, jpeg_quality=80).capture_rgbd()
+        jpeg, projection = SimRenderer(simulation, jpeg_quality=80).capture_rgbd()
         assert jpeg.startswith(b"\xff\xd8")
         assert jpeg.endswith(b"\xff\xd9")
         assert projection.depth.shape == (120, 160)
@@ -86,7 +86,7 @@ def test_mjlab_offscreen_capture_is_synchronized_rgbd() -> None:
 @pytest.mark.skipif(not CUDA_READY, reason="CUDA Torch and ONNX Runtime are required")
 @pytest.mark.skipif(not SONIC_DIR.is_dir(), reason="SONIC bundle is unavailable")
 def test_mjlab_and_sonic_share_one_cuda_stream() -> None:
-    simulation = SonicMjlabEnv(device="cuda:0")
+    simulation = MjlabEnv(device="cuda:0")
     try:
         with simulation.compute_context():
             policy = SonicPolicy(

@@ -10,7 +10,7 @@ import torch
 from mjlab.envs import ManagerBasedRlEnv
 
 from shared.messages import ProjectionContext
-from sonic.mjlab_config import make_sonic_env_cfg
+from sim.config import make_sim_env_cfg
 
 if TYPE_CHECKING:
     from mjlab.envs.types import VecEnvObs, VecEnvStepReturn
@@ -27,7 +27,7 @@ class RobotState:
     joint_vel: torch.Tensor
 
 
-class SonicMjlabEnv:
+class MjlabEnv:
     def __init__(
         self,
         *,
@@ -38,7 +38,7 @@ class SonicMjlabEnv:
     ) -> None:
         torch_device = torch.device(device)
         self._env = ManagerBasedRlEnv(
-            cfg=make_sonic_env_cfg(
+            cfg=make_sim_env_cfg(
                 image_width=image_width,
                 image_height=image_height,
                 task=task,
