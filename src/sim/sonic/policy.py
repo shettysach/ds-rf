@@ -20,7 +20,7 @@ from shared.g1 import (
 from shared.messages import SONIC_FPS, MotionChunk
 from sim.env import RobotState
 from sim.observations import ObservationLayout
-from sim.sonic.onnx_runner import OnnxModel
+from sim.sonic.onnx_model import OnnxModel
 
 HISTORY_FRAMES = 10
 
