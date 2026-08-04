@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 from typing import TYPE_CHECKING, Any, Protocol, cast
 from unittest.mock import patch
 
@@ -101,22 +102,20 @@ class ViserSimViewer(ViserPlayViewer):
         self.sync()
 
     def set_vlm_thinking(self, observation_id: int) -> None:
-        self._vlm_panel.content = (
-            "## VLM\n\n**Thinking…**\n\n"
-            f"Observation #{observation_id}"
+        self._vlm_panel.content = _vlm_panel_html(
+            observation_id,
+            reasoning="Thinking…",
+            command="",
+            thinking=True,
         )
 
     def set_vlm_result(
         self, observation_id: int, reasoning: str | None, command: str
     ) -> None:
-        reasoning_text = reasoning or "(No reasoning returned)"
-        self._vlm_panel.content = (
-            "## VLM\n\n"
-            "### Reasoning\n"
-            f"{reasoning_text}\n\n"
-            "### Decision\n"
-            f"`{command}`\n\n"
-            f"Observation #{observation_id}"
+        self._vlm_panel.content = _vlm_panel_html(
+            observation_id,
+            reasoning=reasoning or "(No reasoning returned)",
+            command=command,
         )
 
     def setup(self) -> None:
@@ -142,8 +141,13 @@ class ViserSimViewer(ViserPlayViewer):
         tab_group._tab_container_ids = ()
 
         with tab_group.add_tab("VLM"):
-            self._vlm_panel = self._server.gui.add_markdown(
-                "## VLM\n\n**Waiting for observation…**"
+            self._vlm_panel = self._server.gui.add_html(
+                _vlm_panel_html(
+                    -1,
+                    reasoning="Waiting for observation…",
+                    command="",
+                    thinking=True,
+                )
             )
 
     def sync(self) -> None:
@@ -164,3 +168,37 @@ class _ViewerOnlyPolicy:
     def __call__(self, obs: object) -> torch.Tensor:
         del obs
         raise RuntimeError("The passive simulation viewer cannot drive physics")
+
+
+def _vlm_panel_html(
+    observation_id: int,
+    *,
+    reasoning: str,
+    command: str,
+    thinking: bool = False,
+) -> str:
+    observation = "—" if observation_id < 0 else str(observation_id)
+    reasoning_html = html.escape(reasoning)
+    command_html = html.escape(command)
+    decision = (
+        ""
+        if thinking
+        else (
+            '<div style="font-size:10px;color:#94a3b8;margin-top:10px;">'
+            "DECISION</div>"
+            f'<div style="font-size:12px;font-weight:600;margin-top:2px;">'
+            f"{command_html}</div>"
+        )
+    )
+    return (
+        '<div style="font-family:system-ui,sans-serif;font-size:11px;'
+        'line-height:1.35;padding:2px 0;">'
+        '<div style="font-size:14px;font-weight:700;margin-bottom:8px;">VLM</div>'
+        '<div style="font-size:10px;color:#94a3b8;">REASONING</div>'
+        '<div style="font-size:11px;line-height:1.35;max-height:180px;'
+        f'overflow-y:auto;white-space:pre-wrap;margin-top:2px;">{reasoning_html}</div>'
+        f"{decision}"
+        '<div style="font-size:10px;color:#94a3b8;margin-top:10px;">'
+        f"Observation #{observation}</div>"
+        "</div>"
+    )

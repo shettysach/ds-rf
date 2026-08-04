@@ -356,7 +356,14 @@ def test_sonic_stops_demo_recording_after_standing_at_corridor_approach(
             {"type": "STOP"},
         ]
     )
+    node.dataflow_id = "demo-dataflow"
+    stopped: list[tuple[list[str], dict[str, object]]] = []
     monkeypatch.setattr(sim_runtime.time, "sleep", lambda delay: None)
+    monkeypatch.setattr(
+        sim_runtime.subprocess,
+        "Popen",
+        lambda args, **kwargs: stopped.append((args, kwargs)),
+    )
 
     sim_runtime.SimRuntime(
         cast(Any, node),
@@ -371,3 +378,13 @@ def test_sonic_stops_demo_recording_after_standing_at_corridor_approach(
     assert recorder.closed
     assert [output_id for output_id, _, _ in node.outputs].count("observation") == 1
     assert any("Demo recording stopped" in message for _, message, _ in node.logs)
+    assert stopped == [
+        (
+            ["dora", "stop", "demo-dataflow"],
+            {
+                "stdout": sim_runtime.subprocess.DEVNULL,
+                "stderr": sim_runtime.subprocess.DEVNULL,
+                "start_new_session": True,
+            },
+        )
+    ]

@@ -5,7 +5,7 @@ import pytest
 from mjlab.viewer import NativeMujocoViewer, ViserPlayViewer
 
 import sim.viewer as viewer_module
-from sim.viewer import NativeSimViewer, ViserSimViewer
+from sim.viewer import NativeSimViewer, ViserSimViewer, _vlm_panel_html
 
 
 @pytest.mark.parametrize(
@@ -70,3 +70,12 @@ def test_viser_reference_ghost_follows_mjlab_visualizers(
     sonic_viewer._queue_debug_visualizers()
 
     assert calls == ["mjlab", "ghost"]
+
+
+def test_viser_vlm_panel_uses_compact_html() -> None:
+    panel = _vlm_panel_html(12, reasoning="Inspect the left corridor.", command="WALK LEFT")
+
+    assert "<h" not in panel
+    assert "font-size:11px" in panel
+    assert "max-height:180px" in panel
+    assert "Observation #12" in panel

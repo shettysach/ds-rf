@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -218,7 +219,30 @@ class SimRuntime:
                 "command": command,
             },
         )
+        self._request_dataflow_stop()
         return True
+
+    def _request_dataflow_stop(self) -> None:
+        dataflow_id = getattr(self.node, "dataflow_id", None)
+        if dataflow_id is None:
+            return
+        try:
+            subprocess.Popen(
+                ["dora", "stop", str(dataflow_id)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except OSError as exc:
+            self.node.log(
+                "error",
+                f"Failed to stop dataflow {dataflow_id}: {exc}",
+                target="dsrf.sim",
+                fields={
+                    "event": "demo_dataflow_stop_error",
+                    "detail": str(exc),
+                },
+            )
 
     def _publish_observation(
         self, *, completed_command: str | None
