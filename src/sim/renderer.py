@@ -23,7 +23,7 @@ class SimRenderer:
         return self._encode(image), projection
 
     def capture_demo_rgb(self) -> np.ndarray:
-        """Capture the stable offscreen demo camera, separate from interactive Viser."""
+        """Capture the same offscreen camera view that is sent to the VLM."""
         return self.simulation.render_demo_rgb()
 
     def _encode(self, image: np.ndarray) -> bytes:

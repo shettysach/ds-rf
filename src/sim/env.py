@@ -144,24 +144,15 @@ class MjlabEnv:
         return rgb, projection
 
     def render_demo_rgb(self) -> np.ndarray:
-        """Render a stable third-person camera for simulation-time video."""
+        """Render the same offscreen camera view that is sent to the VLM."""
         with self.compute_context():
             offline = self._env._offline_renderer
             if offline is None:
                 raise RuntimeError("MJLab offscreen renderer is not initialized")
-            # OffscreenRenderer.update() bridges MJWarp data into its own native
-            # MjData before calling MuJoCo. Do not call renderer.update_scene()
-            # directly with self._env.sim.data: that is a WarpBridge, not MjData.
-            camera = offline._cam
-            saved = (camera.distance, camera.azimuth, camera.elevation)
-            try:
-                camera.distance = 5.0
-                camera.azimuth = 0.0
-                camera.elevation = -12.0
-                offline.update(self._env.sim.data)
-                return offline.render().copy()
-            finally:
-                camera.distance, camera.azimuth, camera.elevation = saved
+            # Keep this camera state untouched: render_rgbd(), which feeds the
+            # VLM, uses the same offscreen renderer and camera.
+            offline.update(self._env.sim.data)
+            return offline.render().copy()
 
     def close(self) -> None:
         self._env.close()
