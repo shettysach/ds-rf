@@ -84,6 +84,28 @@ class MjlabEnv:
         with self.compute_context():
             return self._env.step(actions)
 
+    def task_collision_names(self) -> tuple[str, ...]:
+        """Return task collision geoms touched in the current physics state.
+
+        Task obstacles deliberately use the ``_collision`` suffix. Looking
+        only for those contacts includes every robot-to-obstacle touch while
+        excluding normal floor and self contacts.
+        """
+        with self.compute_context():
+            model = self._env.sim.model
+            data = self._env.sim.data
+            names: set[str] = set()
+            for contact in data.contact[: data.ncon]:
+                for geom_id in (int(contact.geom1), int(contact.geom2)):
+                    name = mujoco.mj_id2name(
+                        model,
+                        mujoco.mjtObj.mjOBJ_GEOM,  # ty: ignore[unresolved-attribute]
+                        geom_id,
+                    )
+                    if name is not None and name.endswith("_collision"):
+                        names.add(name)
+            return tuple(sorted(names))
+
     def reset(self) -> tuple[VecEnvObs, dict[str, object]]:
         with self.compute_context():
             return self._env.reset()

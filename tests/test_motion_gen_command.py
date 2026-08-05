@@ -56,13 +56,13 @@ def test_stand_has_no_specific_target() -> None:
 @pytest.mark.parametrize(
     ("direction", "expected"),
     [
-        ("forward", (0.0, 1.0, 0.0)),
-        ("backward", (0.0, -1.0, 0.0)),
-        ("left", (-1.0, 0.0, 0.0)),
-        ("right", (1.0, 0.0, 0.0)),
+        ("forward", (1.0, 0.0, 0.0)),
+        ("backward", (-1.0, 0.0, 0.0)),
+        ("left", (0.0, 1.0, 0.0)),
+        ("right", (0.0, -1.0, 0.0)),
     ],
 )
-def test_direction_is_rotated_into_world_frame(
+def test_direction_uses_fixed_world_frame(
     direction: str, expected: tuple[float, float, float]
 ) -> None:
     captured: dict[str, np.ndarray] = {}

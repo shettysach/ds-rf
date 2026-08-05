@@ -128,6 +128,7 @@ class VisualObservation:
     jpeg: bytes
     projection: ProjectionContext | None = None
     run_id: int = 0
+    collision_summary: str | None = None
 
     def __post_init__(self) -> None:
         if self.observation_id < 0:
@@ -246,6 +247,8 @@ def observation_to_arrow(
     }
     if observation.completed_command is not None:
         metadata["completed_command"] = observation.completed_command
+    if observation.collision_summary is not None:
+        metadata["collision_summary"] = observation.collision_summary
     depth: bytes | None = None
     if observation.projection is not None:
         projection = observation.projection
@@ -312,6 +315,11 @@ def observation_from_arrow(
         jpeg=jpeg,
         projection=projection,
         run_id=int(metadata.get("run_id", 0)),
+        collision_summary=(
+            str(metadata["collision_summary"])
+            if "collision_summary" in metadata
+            else None
+        ),
     )
 
 

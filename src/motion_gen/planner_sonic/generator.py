@@ -45,7 +45,7 @@ class PlannerSonic:
         headings = np.zeros((1, PLANNER_CONTEXT_FRAMES), dtype=np.float32)
 
         if direction is not None:
-            movement = _direction_vector(direction, facing)
+            movement = _direction_vector(direction)
         elif target_xy is not None:
             forward, left = target_xy
             world_delta = np.array(
@@ -94,15 +94,13 @@ def _quaternion_yaw(quaternion_wxyz: np.ndarray) -> float:
     return float(np.arctan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z)))
 
 
-def _direction_vector(direction: str, facing: np.ndarray) -> np.ndarray:
-    """Convert a robot-relative direction into a world-frame vector."""
-    forward = facing
-    left = np.array([-facing[1], facing[0], 0.0], dtype=np.float32)
+def _direction_vector(direction: str) -> np.ndarray:
+    """Return the fixed world-frame vector for a planner direction."""
     vectors = {
-        "forward": forward,
-        "backward": -forward,
-        "left": left,
-        "right": -left,
+        "forward": np.array([1.0, 0.0, 0.0], dtype=np.float32),
+        "backward": np.array([-1.0, 0.0, 0.0], dtype=np.float32),
+        "left": np.array([0.0, 1.0, 0.0], dtype=np.float32),
+        "right": np.array([0.0, -1.0, 0.0], dtype=np.float32),
     }
     try:
         return np.asarray(vectors[direction], dtype=np.float32)

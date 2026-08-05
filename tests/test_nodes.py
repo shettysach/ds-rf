@@ -187,9 +187,10 @@ def test_ardy_motion_gen_consumes_encoded_commands(monkeypatch) -> None:
 class _Simulation:
     device = "cpu"
 
-    def __init__(self) -> None:
+    def __init__(self, collision_names: tuple[str, ...] = ()) -> None:
         self.steps = 0
         self.root_x = 0.0
+        self.collision_names = collision_names
 
     def compute_context(self):
         return nullcontext()
@@ -203,6 +204,9 @@ class _Simulation:
     def step(self, action) -> None:
         del action
         self.steps += 1
+
+    def task_collision_names(self) -> tuple[str, ...]:
+        return self.collision_names
 
 
 class _Policy:
@@ -316,7 +320,31 @@ def test_sonic_steps_final_action_before_capture(monkeypatch) -> None:
     assert first.completed_command is None
     assert second.observation_id == 1
     assert second.completed_command == "walk forward"
+    assert second.collision_summary is None
     assert any("[OBS 0->1] motion complete" in message for _, message, _ in node.logs)
+
+
+def test_sonic_includes_task_contact_in_next_observation(monkeypatch) -> None:
+    qpos = np.zeros((2, 36), dtype=np.float32)
+    qpos[:, 3] = 1.0
+    node = _Node([_motion_event(MotionChunk(0, "walk forward", qpos))])
+    simulation = _Simulation(("portrait_corridors_end_wall_collision",))
+    monkeypatch.setattr(sim_runtime.time, "sleep", lambda delay: None)
+
+    sim_runtime.SimRuntime(
+        cast(Any, node),
+        cast(Any, simulation),
+        cast(Any, _Policy()),
+        cast(Any, _Renderer(simulation)),
+    ).run()
+
+    observations = [output for output in node.outputs if output[0] == "observation"]
+    observation = observation_from_arrow(
+        observations[1][1], cast(Any, observations[1][2]["metadata"])
+    )
+    assert observation.collision_summary == (
+        "contact with portrait_corridors_end_wall_collision"
+    )
 
 
 def test_sonic_rejects_motion_for_stale_observation() -> None:
