@@ -54,32 +54,26 @@ class DemoVideoRecorder:
             reasoning = reasoning[:797].rstrip() + "..."
         reasoning_lines = textwrap.wrap(reasoning, width=36) or [""]
         entries = [
-            (f"Observation #{state.observation_id}    VLM output", self._bold_font),
+            (f"Observation #{state.observation_id}", self._font),
+            ("VLM output", self._bold_font),
             ("Reasoning", self._bold_font),
             *[(line, self._font) for line in reasoning_lines],
             ("Command", self._bold_font),
             (_decision_label(state.command), self._font),
         ]
 
-        line_height = 12
-        padding = 8
-        panel_width = min(image.width - 24, max(190, int(image.width * 0.30)))
-        panel_height = padding * 2 + line_height * len(entries) + 2
-        panel_x = image.width - panel_width - 12
-        panel_y = image.height - panel_height - 12
+        line_height = 13
+        padding = 10
+        panel_width = min(image.width - 24, max(220, int(image.width * 0.32)))
+        panel_height = padding * 2 + line_height * len(entries) + 4
         draw.rounded_rectangle(
-            (panel_x, panel_y, panel_x + panel_width, panel_y + panel_height),
+            (12, 12, 12 + panel_width, 12 + panel_height),
             radius=7,
             fill=(0, 0, 0, 200),
         )
-        y = panel_y + padding
+        y = 12 + padding
         for line, font in entries:
-            draw.text(
-                (panel_x + padding, y),
-                line,
-                fill=(255, 255, 255, 255),
-                font=font,
-            )
+            draw.text((12 + padding, y), line, fill=(255, 255, 255, 255), font=font)
             y += line_height
 
         image = Image.alpha_composite(image, overlay).convert("RGB")
