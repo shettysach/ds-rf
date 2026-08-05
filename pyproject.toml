@@ -35,15 +35,18 @@ cu128 = [
     "torch>=2.7.0",
     "torchvision",
 ]
+scout = ["mcp>=1.28,<2"]
 
 [project.scripts]
 dsrf-agent = "nodes.agent:main"
 dsrf-motion-gen = "nodes.motion_gen:main"
 dsrf-sim = "nodes.sim:main"
 dsrf-text-encoder = "nodes.text_encoder:main"
+mjlab-scout = "mjlab_scout.server:main"
 
 [dependency-groups]
 dev = [
+    "mcp>=1.28,<2",
     "pytest>=9.0.2",
     "ruff>=0.14.14",
     "ty>=0.0.14",
@@ -89,6 +92,7 @@ explicit = true
 packages = [
     "src/agent",
     "src/motion_gen",
+    "src/mjlab_scout",
     "src/nodes",
     "src/shared",
     "src/sim",

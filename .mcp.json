@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "mjlab-scout": {
+      "command": ".venv/bin/mjlab-scout",
+      "args": ["--device", "cuda:0"]
+    }
+  }
+}
