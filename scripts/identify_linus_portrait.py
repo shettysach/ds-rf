@@ -8,6 +8,7 @@ import base64
 import json
 import mimetypes
 import os
+import random
 import urllib.request
 from pathlib import Path
 
@@ -36,9 +37,13 @@ def main() -> None:
     )
     parser.add_argument("--timeout", type=float, default=120.0)
     args = parser.parse_args()
-    images = tuple(args.images) or DEFAULT_IMAGES
+    images = list(args.images) or list(DEFAULT_IMAGES)
     if len(images) != 3:
         parser.error("provide exactly three images")
+    random.shuffle(images)
+    real_answer = next(
+        index for index, path in enumerate(images) if path.stem.lower() == "linus"
+    )
 
     content: list[dict[str, object]] = [
         {
@@ -89,7 +94,8 @@ def main() -> None:
         answer = result["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as exc:
         raise RuntimeError(f"Unexpected llama-server response: {result!r}") from exc
-    print(answer.strip())
+    print(f"REAL ANSWER: {real_answer}")
+    print(f"VLM ANSWER: {answer.strip()}")
 
 
 if __name__ == "__main__":
