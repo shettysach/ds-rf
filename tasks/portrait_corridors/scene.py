@@ -40,7 +40,7 @@ class _Portrait:
 _PORTRAITS = (
     _Portrait("linus"),
     _Portrait("karpathy", half_size=(0.85, 0.85)),
-    _Portrait("bugs"),
+    _Portrait("gates"),
 )
 
 
@@ -67,11 +67,9 @@ def make_portrait_corridors_spec_fn(
             raise ValueError(
                 f"goal_index must be in [0, {len(_PORTRAITS) - 1}], got {goal_index}"
             )
-        goal = next(portrait for portrait in _PORTRAITS if portrait.name == "bugs")
+        goal = next(portrait for portrait in _PORTRAITS if portrait.name == "linus")
         distractors = [
-            portrait
-            for portrait in _PORTRAITS
-            if portrait.name != goal.name
+            portrait for portrait in _PORTRAITS if portrait.name != goal.name
         ]
         random.Random(seed).shuffle(distractors)
         portraits = list(distractors)

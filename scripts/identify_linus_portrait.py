@@ -13,9 +13,10 @@ import urllib.request
 from pathlib import Path
 
 DEFAULT_IMAGES = (
-    Path(__file__).resolve().parents[1] / "tasks/portrait_corridors/images/karpathy.png",
+    Path(__file__).resolve().parents[1]
+    / "tasks/portrait_corridors/images/karpathy.png",
     Path(__file__).resolve().parents[1] / "tasks/portrait_corridors/images/linus.png",
-    Path(__file__).resolve().parents[1] / "tasks/portrait_corridors/images/bugs.png",
+    Path(__file__).resolve().parents[1] / "tasks/portrait_corridors/images/gates.png",
 )
 
 

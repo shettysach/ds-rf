@@ -23,7 +23,7 @@ class TaskDefinition:
 
 TASKS: dict[TaskName, TaskDefinition] = {
     "portrait-corridors": TaskDefinition(
-        objective="Stand in front of the image of the cartoon.",
+        objective="Stand in front of the image of the creator of Linux.",
         make_spec_fn=make_portrait_corridors_spec_fn,
         camera_distance=3.5,
         camera_elevation=-30.0,
