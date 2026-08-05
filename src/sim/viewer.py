@@ -186,20 +186,23 @@ def _vlm_panel_html(
         else (
             '<div style="font-size:10px;font-weight:700;color:#94a3b8;margin-top:10px;">'
             "Command</div>"
-            f'<div style="font-size:12px;font-weight:600;margin-top:2px;">'
+            f'<div style="font-size:12px;font-weight:600;margin-top:2px;'
+            f'overflow-wrap:anywhere;max-width:100%;">'
             f"{command_html}</div>"
         )
     )
     return (
         '<div style="font-family:system-ui,sans-serif;font-size:11px;'
-        'line-height:1.35;padding:2px 0;">'
+        'line-height:1.35;padding:2px 0;width:100%;max-width:100%;'
+        'box-sizing:border-box;overflow:hidden;">'
         f'<div style="font-size:11px;margin-bottom:8px;">Observation #{observation}</div>'
         '<div style="font-size:12px;font-weight:700;margin-bottom:6px;">'
         "VLM output</div>"
         '<div style="font-size:10px;font-weight:700;color:#94a3b8;">'
         "Reasoning</div>"
         '<div style="font-size:11px;line-height:1.35;max-height:180px;'
-        f'overflow-y:auto;white-space:pre-wrap;margin-top:2px;">{reasoning_html}</div>'
+        'max-width:100%;overflow-y:auto;overflow-wrap:anywhere;'
+        f'white-space:pre-wrap;margin-top:2px;">{reasoning_html}</div>'
         f"{decision}"
         "</div>"
     )
