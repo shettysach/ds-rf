@@ -26,7 +26,7 @@ TASKS: dict[TaskName, TaskDefinition] = {
         objective="Stand in front of the image of the creator of Linux.",
         make_spec_fn=make_portrait_corridors_spec_fn,
         camera_distance=5.0,
-        camera_elevation=-40.0,
+        camera_elevation=-20.0,
     ),
 }
 

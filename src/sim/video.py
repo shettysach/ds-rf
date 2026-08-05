@@ -31,10 +31,10 @@ class DemoVideoRecorder:
             codec="libx264",
             macro_block_size=1,
         )
-        self._font = ImageFont.load_default(size=10)
+        self._font = ImageFont.load_default(size=20)
         try:
             self._bold_font = ImageFont.truetype(
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 10
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20
             )
         except OSError:
             self._bold_font = self._font
@@ -62,8 +62,8 @@ class DemoVideoRecorder:
             (_decision_label(state.command), self._font),
         ]
 
-        line_height = 13
-        padding = 10
+        line_height = 24
+        padding = 16
         panel_width = min(image.width - 24, max(220, int(image.width * 0.32)))
         panel_height = padding * 2 + line_height * len(entries) + 4
         panel_x = image.width - panel_width - 12

@@ -38,8 +38,8 @@ nodes:
       SONIC_DIR: /tmp/GEAR-SONIC
       TASK: portrait-corridors
       GOAL_INDEX: "${GOAL_INDEX:-1}"
-      IMAGE_WIDTH: "640"
-      IMAGE_HEIGHT: "480"
+      IMAGE_WIDTH: "1280"
+      IMAGE_HEIGHT: "720"
       JPEG_QUALITY: "85"
       VIEWER: viser
       REFERENCE_GHOST: "${REFERENCE_GHOST:-false}"
