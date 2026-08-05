@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Optional
 
 from dora import Node
@@ -42,15 +43,12 @@ def main() -> None:
             )
         renderer = SimRenderer(simulation, jpeg_quality=cfg.jpeg_quality)
         video_path = (
-            cfg.demo_video_dir / "portrait-corridors-10-runs.mp4"
+            cfg.demo_video_dir
+            / f"goal{cfg.goal_index}_{datetime.now().strftime('%H%M')}.mp4"
             if cfg.demo_video_dir is not None
             else cfg.demo_video_path
         )
-        recorder = (
-            DemoVideoRecorder(video_path)
-            if video_path is not None
-            else None
-        )
+        recorder = DemoVideoRecorder(video_path) if video_path is not None else None
         _log_init(node, cfg)
         SimRuntime(
             node,
