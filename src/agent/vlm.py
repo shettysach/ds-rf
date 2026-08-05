@@ -38,6 +38,7 @@ class LlamaServerClient:
         timeout: float,
         system_prompt: str,
         user_prompt: str,
+        reference_image: bytes | None = None,
     ) -> None:
         if not system_prompt.strip():
             raise ValueError("System prompt must not be empty")
@@ -47,6 +48,7 @@ class LlamaServerClient:
         self.timeout = timeout
         self.system_prompt = system_prompt
         self.user_prompt = user_prompt
+        self.reference_image = reference_image
         self._history: list[_ConversationTurn] = []
 
     def complete(
@@ -59,13 +61,20 @@ class LlamaServerClient:
             {"role": "system", "content": self.system_prompt}
         ]
         for turn in self._history:
-            messages.append(_user_message(turn.observation, self.user_prompt))
+            messages.append(
+                _user_message(
+                    turn.observation,
+                    self.user_prompt,
+                    reference_image=self.reference_image,
+                )
+            )
             messages.append({"role": "assistant", "content": turn.assistant})
         messages.append(
             _user_message(
                 observation,
                 self.user_prompt,
                 retry_feedback=retry_feedback,
+                reference_image=self.reference_image,
             )
         )
 
@@ -109,16 +118,26 @@ def _user_message(
     user_prompt: str,
     *,
     retry_feedback: str | None = None,
+    reference_image: bytes | None = None,
 ) -> dict[str, Any]:
     completed = observation.completed_command or "none (initial observation)"
     text = f"Completed command: {completed}\n\n{user_prompt}"
     if retry_feedback is not None:
         text = f"{retry_feedback}\n\n{text}"
     image_url = "data:image/jpeg;base64," + b64encode(observation.jpeg).decode("ascii")
+    content: list[dict[str, Any]] = [{"type": "text", "text": text}]
+    if reference_image is not None:
+        reference_url = "data:image/jpeg;base64," + b64encode(reference_image).decode(
+            "ascii"
+        )
+        content.extend(
+            [
+                {"type": "text", "text": "Reference portrait of Linus:"},
+                {"type": "image_url", "image_url": {"url": reference_url}},
+            ]
+        )
+    content.append({"type": "image_url", "image_url": {"url": image_url}})
     return {
         "role": "user",
-        "content": [
-            {"type": "text", "text": text},
-            {"type": "image_url", "image_url": {"url": image_url}},
-        ],
+        "content": content,
     }
