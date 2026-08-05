@@ -116,7 +116,10 @@ class AgentConfig:
             user_prompt=Path(os.environ["VLM_USER_PROMPT"]),
             vlm_reference_image=(
                 Path(value)
-                if (value := os.environ.get("VLM_REFERENCE_IMAGE", "").strip())
+                if (
+                    (value := os.environ.get("VLM_REFERENCE_IMAGE", "").strip())
+                    and value.lower() not in {"none", "null"}
+                )
                 else None
             ),
             waypoint_debug=_optional_boolean("WAYPOINT_DEBUG", default=False),
