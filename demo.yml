@@ -41,7 +41,7 @@ nodes:
       IMAGE_WIDTH: "1280"
       IMAGE_HEIGHT: "720"
       JPEG_QUALITY: "85"
-      VIEWER: viser
+      VIEWER: native
       REFERENCE_GHOST: "${REFERENCE_GHOST:-false}"
       DEMO_VIDEO_PATH: "${DEMO_VIDEO_PATH:-}"
       MOTION_TIMEOUT_SECONDS: "${MOTION_TIMEOUT_SECONDS:-20}"
