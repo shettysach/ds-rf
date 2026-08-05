@@ -117,8 +117,9 @@ lesson derived from the inspected task.
 - Describe navigation-relevant environment structure, but never bind the target
   to a side, direction, branch, corridor, ordering, adjacency, landmark, turn
   sequence, or other privileged location clue.
-- Do not state the candidates' names. Preserve the objective and let the live
-  VLM identify the matching candidate visually.
+- Never state a candidate's proper name, including the target's. Refer to the
+  target only by the title or role given in the objective, preserving that
+  wording, and let the live VLM identify the matching candidate visually.
 - Keep every procedure actionable from the live forward-facing image and
   supported by visible scene geometry. Use only motions and global direction
   meanings supported by `prompt/PLANNER_USER.md`; never silently reinterpret

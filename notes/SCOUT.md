@@ -31,9 +31,10 @@ The root `.mcp.json` launches:
 The server communicates over stdio and normally waits silently for an MCP
 client. To use CPU instead, change the configured device to `cpu`.
 
-Loading a task also opens the rendered `overview` frame in a small window for
-three seconds. This is the same frame returned to the scouting VLM. Pass
-`--preview-seconds 0` to disable the window, or choose another duration in
+Loading a task opens the rendered `overview` frame in a small window. Each view
+the scouting VLM subsequently requests also opens for three seconds and is
+labeled with its view name. These are the same frames returned to the VLM. Pass
+`--preview-seconds 0` to disable the windows, or choose another duration in
 seconds.
 
 The Phase 1 skill is located at:

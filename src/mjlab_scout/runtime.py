@@ -57,7 +57,10 @@ class ScoutRuntime:
         return self._submit(self._load_task, task)
 
     def capture_view(self, view: ScoutView = "overview") -> CapturedView:
-        return self._submit(self._capture_view, view)
+        captured = self._submit(self._capture_view, view)
+        if self.config.preview_seconds > 0:
+            _spawn_preview(captured.image, captured.view, self.config.preview_seconds)
+        return captured
 
     def close_task(self) -> None:
         self._submit(self._close_task)
@@ -109,7 +112,11 @@ class ScoutRuntime:
         )
         if self.config.preview_seconds > 0:
             overview = self._capture_view("overview")
-            _spawn_preview(overview.image, self.config.preview_seconds)
+            _spawn_preview(
+                overview.image,
+                overview.view,
+                self.config.preview_seconds,
+            )
         return TaskInfo(
             name=task,
             objective=definition.objective,
@@ -204,7 +211,7 @@ def _encode_jpeg(image: Any) -> bytes:
     return buffer.getvalue()
 
 
-def _spawn_preview(image: bytes, duration: float) -> None:
+def _spawn_preview(image: bytes, view: ScoutView, duration: float) -> None:
     """Show a rendered frame without blocking the Scout's render thread."""
     if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
         print("Scout overview preview skipped: no graphical display", file=sys.stderr)
@@ -221,6 +228,8 @@ def _spawn_preview(image: bytes, duration: float) -> None:
                 "mjlab_scout.preview",
                 "--duration",
                 str(duration),
+                "--view",
+                view,
                 path,
             ],
             stdin=subprocess.DEVNULL,
