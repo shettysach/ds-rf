@@ -53,7 +53,7 @@ def test_llama_client_uses_blank_model_and_replays_history(monkeypatch) -> None:
         system_prompt="System file prompt.\n",
         user_prompt="User file prompt.\n",
     )
-    first = VisualObservation(0, None, b"first", collision_summary="contact with wall")
+    first = VisualObservation(0, None, b"first", collision_summary="collision happened")
     assert client.complete(first) == "stand"
     client.commit(first, "stand")
 
@@ -75,7 +75,7 @@ def test_llama_client_uses_blank_model_and_replays_history(monkeypatch) -> None:
     assert messages[2]["content"] == "stand"
     assert messages[1]["content"][1]["image_url"]["url"].endswith("Zmlyc3Q=")
     assert messages[3]["content"][1]["image_url"]["url"].endswith("c2Vjb25k")
-    assert "Collision since last observation: contact with wall" in messages[1]["content"][0]["text"]
+    assert "Collision since last observation: collision happened" in messages[1]["content"][0]["text"]
     assert "Collision since last observation: none" in messages[3]["content"][0]["text"]
 
 

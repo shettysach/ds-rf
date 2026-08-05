@@ -47,7 +47,7 @@ class ExecutionStats:
     frames: int
     elapsed_ms: float
     overrun_steps: int
-    collision_summary: str | None = None
+    collision_detected: bool = False
 
 
 @dataclass(frozen=True)
@@ -200,7 +200,7 @@ class SimRuntime:
         self.observation_id += 1
         render_ms, jpeg_size = self._publish_observation(
             completed_command=chunk.command,
-            collision_summary=stats.collision_summary,
+            collision_summary=("collision happened" if stats.collision_detected else None),
         )
         target_ms = stats.frames * CONTROL_PERIOD * 1000.0
         realtime = target_ms / stats.elapsed_ms if stats.elapsed_ms > 0.0 else 0.0
@@ -233,7 +233,7 @@ class SimRuntime:
         next_step = time.perf_counter()
         frames = 0
         overrun_steps = 0
-        collision_names: set[str] = set()
+        collision_detected = False
         with torch.no_grad():
             while True:
                 if frames >= self.max_motion_frames:
@@ -249,7 +249,7 @@ class SimRuntime:
                     state = self.simulation.robot_state()
                     action, completed = self.policy.infer(state)
                 self.simulation.step(action)
-                collision_names.update(self.simulation.task_collision_names())
+                collision_detected |= self.simulation.task_collision_detected()
                 if self.viewer is not None:
                     self.viewer.sync()
                 if self.recorder is not None:
@@ -265,7 +265,7 @@ class SimRuntime:
                         frames=frames,
                         elapsed_ms=(time.perf_counter() - started_at) * 1000.0,
                         overrun_steps=overrun_steps,
-                        collision_summary=_collision_summary(collision_names),
+                        collision_detected=collision_detected,
                     )
 
                 next_step += CONTROL_PERIOD
@@ -443,9 +443,3 @@ def _command_signature(command: str) -> object:
         if isinstance(waypoint, list):
             return ("walk", tuple(waypoint))
     return (motion,)
-
-
-def _collision_summary(collision_names: set[str]) -> str | None:
-    if not collision_names:
-        return None
-    return "contact with " + ", ".join(sorted(collision_names))

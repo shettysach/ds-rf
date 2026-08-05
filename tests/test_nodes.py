@@ -187,10 +187,10 @@ def test_ardy_motion_gen_consumes_encoded_commands(monkeypatch) -> None:
 class _Simulation:
     device = "cpu"
 
-    def __init__(self, collision_names: tuple[str, ...] = ()) -> None:
+    def __init__(self, collision_detected: bool = False) -> None:
         self.steps = 0
         self.root_x = 0.0
-        self.collision_names = collision_names
+        self.collision_detected = collision_detected
 
     def compute_context(self):
         return nullcontext()
@@ -205,8 +205,8 @@ class _Simulation:
         del action
         self.steps += 1
 
-    def task_collision_names(self) -> tuple[str, ...]:
-        return self.collision_names
+    def task_collision_detected(self) -> bool:
+        return self.collision_detected
 
 
 class _Policy:
@@ -328,7 +328,7 @@ def test_sonic_includes_task_contact_in_next_observation(monkeypatch) -> None:
     qpos = np.zeros((2, 36), dtype=np.float32)
     qpos[:, 3] = 1.0
     node = _Node([_motion_event(MotionChunk(0, "walk forward", qpos))])
-    simulation = _Simulation(("portrait_corridors_end_wall_collision",))
+    simulation = _Simulation(collision_detected=True)
     monkeypatch.setattr(sim_runtime.time, "sleep", lambda delay: None)
 
     sim_runtime.SimRuntime(
@@ -342,9 +342,7 @@ def test_sonic_includes_task_contact_in_next_observation(monkeypatch) -> None:
     observation = observation_from_arrow(
         observations[1][1], cast(Any, observations[1][2]["metadata"])
     )
-    assert observation.collision_summary == (
-        "contact with portrait_corridors_end_wall_collision"
-    )
+    assert observation.collision_summary == "collision happened"
 
 
 def test_sonic_rejects_motion_for_stale_observation() -> None:
