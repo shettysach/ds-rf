@@ -320,7 +320,7 @@ def test_sonic_steps_final_action_before_capture(monkeypatch) -> None:
     assert first.completed_command is None
     assert second.observation_id == 1
     assert second.completed_command == "walk forward"
-    assert second.collision_summary is None
+    assert not second.collision_detected
     assert any("[OBS 0->1] motion complete" in message for _, message, _ in node.logs)
 
 
@@ -342,7 +342,7 @@ def test_sonic_includes_task_contact_in_next_observation(monkeypatch) -> None:
     observation = observation_from_arrow(
         observations[1][1], cast(Any, observations[1][2]["metadata"])
     )
-    assert observation.collision_summary == "collision happened"
+    assert observation.collision_detected
 
 
 def test_sonic_rejects_motion_for_stale_observation() -> None:
@@ -382,9 +382,9 @@ def test_sonic_stops_demo_recording_after_standing_at_corridor_approach(
             {"type": "STOP"},
         ]
     )
-    node.dataflow_id = "demo-dataflow"
     stopped: list[tuple[list[str], dict[str, object]]] = []
     monkeypatch.setattr(sim_runtime.time, "sleep", lambda delay: None)
+    monkeypatch.setenv("DORA_NODE_CONFIG", "dataflow_id: demo-dataflow\n")
     monkeypatch.setattr(
         sim_runtime.subprocess,
         "Popen",
@@ -406,8 +406,9 @@ def test_sonic_stops_demo_recording_after_standing_at_corridor_approach(
     assert any("Demo recording stopped" in message for _, message, _ in node.logs)
     assert stopped == [
         (
-            ["dora", "stop", "demo-dataflow"],
+            ["dora", "stop", "demo-dataflow", "--grace-duration", "5s"],
             {
+                "stdin": sim_runtime.subprocess.DEVNULL,
                 "stdout": sim_runtime.subprocess.DEVNULL,
                 "stderr": sim_runtime.subprocess.DEVNULL,
                 "start_new_session": True,

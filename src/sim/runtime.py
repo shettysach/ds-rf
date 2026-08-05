@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import subprocess
 import time
 from dataclasses import dataclass
 from typing import Any
 
 import torch
+import yaml
 from dora import Node
 
 from shared.messages import (
@@ -200,7 +202,7 @@ class SimRuntime:
         self.observation_id += 1
         render_ms, jpeg_size = self._publish_observation(
             completed_command=chunk.command,
-            collision_summary=("collision happened" if stats.collision_detected else None),
+            collision_detected=stats.collision_detected,
         )
         target_ms = stats.frames * CONTROL_PERIOD * 1000.0
         realtime = target_ms / stats.elapsed_ms if stats.elapsed_ms > 0.0 else 0.0
@@ -357,22 +359,40 @@ class SimRuntime:
         recorder = self.recorder
         self.recorder = None
         recorder.close()
+        self.node.log(
+            "info",
+            "Demo recording stopped",
+            target="dsrf.sim",
+            fields={"event": "demo_recording_stopped"},
+        )
 
     def _request_dataflow_stop(self) -> None:
-        dataflow_id = getattr(self.node, "dataflow_id", None)
-        if dataflow_id is None:
-            return
+        command = ["dora", "stop"]
+        dataflow_id = _current_dataflow_id()
+        if dataflow_id is not None:
+            command.append(dataflow_id)
+        command.extend(("--grace-duration", "5s"))
         try:
             subprocess.Popen(
-                ["dora", "stop", str(dataflow_id)],
+                command,
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
+            self.node.log(
+                "info",
+                "Dataflow stop requested",
+                target="dsrf.sim",
+                fields={
+                    "event": "demo_dataflow_stop_requested",
+                    "dataflow_id": dataflow_id or "auto",
+                },
+            )
         except OSError as exc:
             self.node.log(
                 "error",
-                f"Failed to stop dataflow {dataflow_id}: {exc}",
+                f"Failed to request dataflow stop: {exc}",
                 target="dsrf.sim",
                 fields={
                     "event": "demo_dataflow_stop_error",
@@ -384,7 +404,7 @@ class SimRuntime:
         self,
         *,
         completed_command: str | None,
-        collision_summary: str | None = None,
+        collision_detected: bool = False,
     ) -> tuple[float, int]:
         render_started_at = time.perf_counter()
         jpeg, projection = self.renderer.capture_rgbd()
@@ -395,7 +415,7 @@ class SimRuntime:
             jpeg=jpeg,
             projection=projection,
             run_id=self.run_index,
-            collision_summary=collision_summary,
+            collision_detected=collision_detected,
         )
         data, metadata = observation_to_arrow(observation)
         self.node.send_output("observation", data, metadata=metadata)
@@ -443,3 +463,18 @@ def _command_signature(command: str) -> object:
         if isinstance(waypoint, list):
             return ("walk", tuple(waypoint))
     return (motion,)
+
+
+def _current_dataflow_id() -> str | None:
+    """Read the current UUID from the config Dora injects into each node."""
+    raw_config = os.environ.get("DORA_NODE_CONFIG")
+    if raw_config is None:
+        return None
+    try:
+        config = yaml.safe_load(raw_config)
+    except yaml.YAMLError:
+        return None
+    if not isinstance(config, dict):
+        return None
+    value = config.get("dataflow_id")
+    return str(value) if value else None

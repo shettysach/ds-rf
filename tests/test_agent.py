@@ -53,7 +53,7 @@ def test_llama_client_uses_blank_model_and_replays_history(monkeypatch) -> None:
         system_prompt="System file prompt.\n",
         user_prompt="User file prompt.\n",
     )
-    first = VisualObservation(0, None, b"first", collision_summary="collision happened")
+    first = VisualObservation(0, None, b"first", collision_detected=True)
     assert client.complete(first) == "stand"
     client.commit(first, "stand")
 
@@ -75,8 +75,11 @@ def test_llama_client_uses_blank_model_and_replays_history(monkeypatch) -> None:
     assert messages[2]["content"] == "stand"
     assert messages[1]["content"][1]["image_url"]["url"].endswith("Zmlyc3Q=")
     assert messages[3]["content"][1]["image_url"]["url"].endswith("c2Vjb25k")
-    assert "Collision since last observation: collision happened" in messages[1]["content"][0]["text"]
-    assert "Collision since last observation: none" in messages[3]["content"][0]["text"]
+    assert (
+        "Collision happened during the completed command."
+        in messages[1]["content"][0]["text"]
+    )
+    assert "Collision happened" not in messages[3]["content"][0]["text"]
 
 
 class _Node:

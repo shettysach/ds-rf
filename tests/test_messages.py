@@ -71,13 +71,13 @@ def test_observation_arrow_round_trip() -> None:
         far=100.0,
     )
     observation = VisualObservation(
-        4, "stand", b"jpeg", projection, collision_summary="contact with wall"
+        4, "stand", b"jpeg", projection, collision_detected=True
     )
     value, metadata = observation_to_arrow(observation)
     restored = observation_from_arrow(value, metadata)
     assert restored.observation_id == observation.observation_id
     assert restored.completed_command == observation.completed_command
-    assert restored.collision_summary == "contact with wall"
+    assert restored.collision_detected
     assert restored.jpeg == observation.jpeg
     assert restored.projection is not None
     np.testing.assert_array_equal(restored.projection.depth, projection.depth)

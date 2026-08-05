@@ -100,7 +100,7 @@ class LlamaServerClient:
             observation.observation_id,
             observation.completed_command,
             observation.jpeg,
-            collision_summary=observation.collision_summary,
+            collision_detected=observation.collision_detected,
         )
         self._history.append(_ConversationTurn(history_observation, command))
 
@@ -116,11 +116,10 @@ def _user_message(
     retry_feedback: str | None = None,
 ) -> dict[str, Any]:
     completed = observation.completed_command or "none (initial observation)"
-    collision = observation.collision_summary or "none"
-    text = (
-        f"Completed command: {completed}\n"
-        f"Collision since last observation: {collision}\n\n{user_prompt}"
-    )
+    status = f"Completed command: {completed}"
+    if observation.collision_detected:
+        status += "\nCollision happened during the completed command."
+    text = f"{status}\n\n{user_prompt}"
     if retry_feedback is not None:
         text = f"{retry_feedback}\n\n{text}"
     image_url = "data:image/jpeg;base64," + b64encode(observation.jpeg).decode("ascii")
