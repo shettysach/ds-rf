@@ -13,8 +13,9 @@ live navigation run. Phase 1's only deliverable is `TASK.md`.
 - **Phase 1: scouting.** Use the `mjlab-scout` MCP tools to inspect the static
   task through every returned camera preset. Use these views to understand the
   initial surroundings, layout, openings, obstacles, landmarks, target,
-  distractors, and observable success condition. Do not navigate, send motion
-  commands, advance the simulation, or inspect source code.
+  distractors, and observable success condition. Read `prompt/PLANNER_USER.md`
+  to understand the live planner's action interface. Do not navigate, send
+  motion commands, advance the simulation, or inspect source code.
 - **Phase 2: live navigation.** A clean-context VLM controls an MJLab
   simulation. It receives `TASK.md`, a live image from the robot's normal
   forward-facing camera, and the allowed motion commands. It may also receive
@@ -26,26 +27,33 @@ live navigation run. Phase 1's only deliverable is `TASK.md`.
 
 ## Procedure
 
-1. Call `list_tasks` only if the task name is unknown, then call `load_task` once.
+1. Read all of `prompt/PLANNER_USER.md` before loading the task. Treat its
+   allowed motions, direction semantics, response schema, and other action
+   constraints as authoritative. This prompt is interface context, not visual
+   evidence about the environment.
 
-2. Inspect **ALL camera preset views** returned by `load_task` with
+2. Call `list_tasks` only if the task name is unknown, then call `load_task`
+   once.
+
+3. Inspect **ALL camera preset views** returned by `load_task` with
    `capture_view`. Only then begin interpreting the scene or drafting `TASK.md`.
    Treat the images as separate perspectives of one environment, not as the
    robot's current live view.
 
-3. Match the target to the supplied objective across all views. A centered,
+4. Match the target to the supplied objective across all views. A centered,
    nearby, or prominent object is not the target unless it matches the objective.
    Treat visible non-matches as distractors.
 
-4. Build a compact description using only supported visual facts. Describe the
+5. Build a compact description using only supported visual facts. Describe the
    initial surroundings and useful scene structure, and derive concise
-   navigation principles from the visible geometry. Keep the target's
-   appearance separate from its location or route.
+   navigation principles from the visible geometry. Express actions consistently
+   with `prompt/PLANNER_USER.md`, including its direction convention. Keep the
+   target's appearance separate from its location or route.
 
-5. Write or replace `TASK.md` in the workspace root using the mandatory format
+6. Write or replace `TASK.md` in the workspace root using the mandatory format
    below.
 
-6. Call `close_task` after writing. If scouting or writing fails, still call
+7. Call `close_task` after writing. If scouting or writing fails, still call
    `close_task` before reporting the failure.
 
 ## Mandatory TASK.md format
@@ -112,12 +120,14 @@ lesson derived from the inspected task.
 - Do not state the candidates' names. Preserve the objective and let the live
   VLM identify the matching candidate visually.
 - Keep every procedure actionable from the live forward-facing image and
-  supported by visible scene geometry.
+  supported by visible scene geometry. Use only motions and global direction
+  meanings supported by `prompt/PLANNER_USER.md`; never silently reinterpret
+  them as robot-relative directions.
 - Do not present a privileged camera composition as the robot's current view.
 - Make success stricter than merely seeing the target unless the objective says
   otherwise. Do not invent distances, tolerances, or hidden reward conditions.
 - Do not mention scouting, phases, MCP, tools, cameras, presets, view names,
-  unavailable context, or prompt-generation instructions.
+  prompt filenames, unavailable context, or prompt-generation instructions.
 - Do not add personas, simulator or robot make/model details, coordinates,
   dimensions, source-code names, implementation details, uncertainty
   commentary, or extra sections.
