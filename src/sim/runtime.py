@@ -29,16 +29,16 @@ PORTRAIT_CORRIDOR_APPROACH_X = 1.0
 MAX_REPEATED_COMMANDS = 10
 
 PORTRAIT_CORRIDOR_RUNS = (
-    ("Center start", (0.0, 0.0)),
-    ("Left corridor entrance", (1.0, 2.0)),
-    ("Right corridor entrance", (1.0, -2.0)),
-    ("Center back", (-1.0, 0.0)),
-    ("Left back", (-1.0, 2.0)),
-    ("Right back", (-1.0, -2.0)),
-    ("Center approach", (0.5, 0.0)),
-    ("Left approach", (0.5, 2.0)),
-    ("Right approach", (0.5, -2.0)),
-    ("Center far back", (-1.5, 0.0)),
+    ("Center far back", (-1.75, 0.0)),
+    ("Center back", (-1.25, 0.0)),
+    ("Center left back", (-1.25, 0.6)),
+    ("Center right back", (-1.25, -0.6)),
+    ("Center", (-0.75, 0.0)),
+    ("Center left", (-0.75, 1.0)),
+    ("Center right", (-0.75, -1.0)),
+    ("Center near", (-0.25, 0.0)),
+    ("Center approach", (0.25, 0.0)),
+    ("Center close", (0.75, 0.0)),
 )
 
 
@@ -124,11 +124,6 @@ class SimRuntime:
         self._repeated_command_count = 0
         if self.viewer is not None:
             self.viewer.sync()
-        if self.recorder is not None:
-            self.recorder.write_title_card(
-                self.renderer.capture_demo_rgb(),
-                f"Run #{self.run_index + 1} — {run.title}",
-            )
         render_ms, jpeg_size = self._publish_observation(completed_command=None)
         self.node.log(
             "info",
