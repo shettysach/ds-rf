@@ -302,11 +302,6 @@ def main() -> None:
         timeout=cfg.vlm_timeout,
         system_prompt=cfg.system_prompt.read_text(encoding="utf-8"),
         user_prompt=cfg.user_prompt.read_text(encoding="utf-8"),
-        reference_image=(
-            cfg.vlm_reference_image.read_bytes()
-            if cfg.vlm_reference_image is not None
-            else None
-        ),
     )
     AgentLoop(
         node,

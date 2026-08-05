@@ -99,7 +99,6 @@ class AgentConfig:
     user_prompt: Path
     waypoint_debug: bool
     command_mode: Literal["waypoint", "direction"]
-    vlm_reference_image: Path | None = None
 
     @classmethod
     def from_env(cls) -> "AgentConfig":
@@ -114,14 +113,6 @@ class AgentConfig:
             vlm_timeout=timeout,
             system_prompt=Path(os.environ["VLM_SYSTEM_PROMPT"]),
             user_prompt=Path(os.environ["VLM_USER_PROMPT"]),
-            vlm_reference_image=(
-                Path(value)
-                if (
-                    (value := os.environ.get("VLM_REFERENCE_IMAGE", "").strip())
-                    and value.lower() not in {"none", "null"}
-                )
-                else None
-            ),
             waypoint_debug=_optional_boolean("WAYPOINT_DEBUG", default=False),
             command_mode=(
                 "direction"

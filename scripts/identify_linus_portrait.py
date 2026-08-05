@@ -18,12 +18,6 @@ DEFAULT_IMAGES = (
     Path(__file__).resolve().parents[1] / "tasks/portrait_corridors/images/linus.png",
     Path(__file__).resolve().parents[1] / "tasks/portrait_corridors/images/nolan.png",
 )
-DEFAULT_REFERENCE_IMAGE = (
-    Path(__file__).resolve().parents[1]
-    / "tasks/portrait_corridors/images/ref_linux.jpeg"
-)
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Identify which of three images is a portrait of Linus."
@@ -40,12 +34,6 @@ def main() -> None:
         default=os.environ.get("VLM_URL", "http://127.0.0.1:8080"),
         help="llama-server base URL (default: http://127.0.0.1:8080)",
     )
-    parser.add_argument(
-        "--reference-image",
-        type=Path,
-        default=DEFAULT_REFERENCE_IMAGE,
-        help="reference portrait image",
-    )
     parser.add_argument("--timeout", type=float, default=120.0)
     args = parser.parse_args()
     images = list(args.images) or list(DEFAULT_IMAGES)
@@ -55,33 +43,16 @@ def main() -> None:
     real_answer = next(
         index for index, path in enumerate(images) if path.stem.lower() == "linus"
     )
-    if not args.reference_image.is_file():
-        raise SystemExit(f"Reference image does not exist: {args.reference_image}")
-
     content: list[dict[str, object]] = [
         {
             "type": "text",
             "text": (
-                "The first image is a reference portrait of Linus. Three candidate "
-                "images follow, labeled Image 0, Image 1, and Image 2. Which "
-                "candidate matches the reference portrait? Reply with only the "
+                "Three images follow, labeled Image 0, Image 1, and Image 2. "
+                "Which image contains a portrait of Linus? Reply with only the "
                 "single image number: 0, 1, or 2."
             ),
         }
     ]
-    reference_mime = mimetypes.guess_type(args.reference_image.name)[0] or "image/jpeg"
-    reference = base64.b64encode(args.reference_image.read_bytes()).decode("ascii")
-    content.extend(
-        [
-            {"type": "text", "text": "Reference image of Linus:"},
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:{reference_mime};base64,{reference}",
-                },
-            },
-        ]
-    )
     for index, path in enumerate(images):
         if not path.is_file():
             raise SystemExit(f"Image does not exist: {path}")

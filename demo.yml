@@ -9,7 +9,6 @@ nodes:
       VLM_TIMEOUT: "120"
       VLM_SYSTEM_PROMPT: TASK.md
       VLM_USER_PROMPT: prompt/PLANNER_USER.md
-      VLM_REFERENCE_IMAGE: tasks/portrait_corridors/images/ref_linux.jpeg
       MOTION_GENERATOR: planner_sonic
     inputs:
       observation: sim/observation
