@@ -19,7 +19,9 @@ live navigation run. Phase 1's only deliverable is `TASK.md`.
 - **Phase 2: live navigation.** A clean-context VLM controls an MJLab
   simulation. It receives `TASK.md`, a live image from the robot's normal
   forward-facing camera, and the allowed motion commands. It may also receive
-  the optional invariant controller prompt.
+  the optional invariant controller prompt. Phase 2—not Phase 1—must use the
+  objective's title or role and its own visual reasoning to determine which
+  candidate matches.
 - **Phase 2 does not have** the Phase 1 conversation or reasoning, Scout tools,
   camera presets, overview or overhead images, view names, or any way to request
   those views. `TASK.md` must therefore carry only the visual knowledge Phase 2
@@ -40,21 +42,35 @@ live navigation run. Phase 1's only deliverable is `TASK.md`.
    Treat the images as separate perspectives of one environment, not as the
    robot's current live view.
 
-4. Match the target to the supplied objective across all views. A centered,
-   nearby, or prominent object is not the target unless it matches the objective.
-   Treat visible non-matches as distractors.
+4. Inspect the candidates and understand how they can be compared, but do not
+   resolve or disclose which candidate matches the objective. A centered,
+   nearby, or prominent candidate must not be presented as the answer.
 
 5. Build a compact description using only supported visual facts. Describe the
    initial surroundings and useful scene structure, and derive concise
    navigation principles from the visible geometry. Express actions consistently
-   with `prompt/PLANNER_USER.md`, including its direction convention. Keep the
-   target's appearance separate from its location or route.
+   with `prompt/PLANNER_USER.md`, including its direction convention. Do not add
+   target-specific appearance cues that reveal which candidate matches the
+   objective.
 
 6. Write or replace `TASK.md` in the workspace root using the mandatory format
    below.
 
 7. Call `close_task` after writing. If scouting or writing fails, still call
    `close_task` before reporting the failure.
+
+## Hard identity boundary
+
+- Never write, quote, spell, abbreviate, alias, label, or parenthetically add a
+  candidate's personal name anywhere in `TASK.md`.
+- Refer to the target only by the exact title or role supplied by the objective.
+- Never reveal which visible candidate matches that title or role through a
+  name, physical description, clothing, corridor, ordering, location, or other
+  distinguishing cue.
+- Leave the identity match entirely to the Phase 2 VLM. Phase 2 must derive the
+  match itself from the objective and its live visual observations.
+- Before finalizing, audit every line of `TASK.md`. If any personal identity or
+  candidate-to-title mapping appears, remove it and audit the file again.
 
 ## Mandatory TASK.md format
 
@@ -112,14 +128,12 @@ lesson derived from the inspected task.
 
 - Ground every detail in the inspected images. Omit uncertain details instead of
   guessing; use exact counts only when unambiguous and useful.
-- Preserve the objective. Use the images to identify and describe its target,
-  not to broaden, narrow, or reinterpret the task.
+- Preserve the objective without broadening, narrowing, reinterpreting, or
+  solving its identity match for Phase 2.
 - Describe navigation-relevant environment structure, but never bind the target
   to a side, direction, branch, corridor, ordering, adjacency, landmark, turn
   sequence, or other privileged location clue.
-- Never state a candidate's proper name, including the target's. Refer to the
-  target only by the title or role given in the objective, preserving that
-  wording, and let the live VLM identify the matching candidate visually.
+- Apply the hard identity boundary without exceptions.
 - Keep every procedure actionable from the live forward-facing image and
   supported by visible scene geometry. Use only motions and global direction
   meanings supported by `prompt/PLANNER_USER.md`; never silently reinterpret
