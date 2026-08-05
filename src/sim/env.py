@@ -155,7 +155,7 @@ class MjlabEnv:
             camera = offline._cam
             saved = (camera.distance, camera.azimuth, camera.elevation)
             try:
-                camera.distance = 4.0
+                camera.distance = 5.0
                 camera.azimuth = 0.0
                 camera.elevation = -12.0
                 offline.update(self._env.sim.data)
