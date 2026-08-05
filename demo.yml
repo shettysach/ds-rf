@@ -43,7 +43,8 @@ nodes:
       JPEG_QUALITY: "85"
       VIEWER: native
       REFERENCE_GHOST: "${REFERENCE_GHOST:-false}"
-      DEMO_VIDEO_PATH: "${DEMO_VIDEO_PATH:-}"
+      DEMO_VIDEO_DIR: "${DEMO_VIDEO_DIR:-}"
+      DEMO_RUNS: "${DEMO_RUNS:-10}"
       MOTION_TIMEOUT_SECONDS: "${MOTION_TIMEOUT_SECONDS:-20}"
     inputs:
       motion: motion-gen/motion

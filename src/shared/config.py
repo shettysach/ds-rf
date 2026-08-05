@@ -65,6 +65,8 @@ class SimConfig:
     viewer: ViewerMode
     reference_ghost: bool
     demo_video_path: Path | None = None
+    demo_video_dir: Path | None = None
+    demo_runs: int = 1
     motion_timeout_seconds: float = 20.0
     goal_index: int | None = None
 
@@ -84,6 +86,12 @@ class SimConfig:
                 if (value := os.environ.get("DEMO_VIDEO_PATH", "").strip())
                 else None
             ),
+            demo_video_dir=(
+                Path(value)
+                if (value := os.environ.get("DEMO_VIDEO_DIR", "").strip())
+                else None
+            ),
+            demo_runs=_positive_int_default("DEMO_RUNS", default=1),
             motion_timeout_seconds=_positive_float(
                 "MOTION_TIMEOUT_SECONDS", default=20.0
             ),
@@ -125,6 +133,12 @@ class AgentConfig:
 
 def _positive_int(name: str) -> int:
     return _bounded_int(name, minimum=1)
+
+
+def _positive_int_default(name: str, *, default: int) -> int:
+    if name not in os.environ:
+        return default
+    return _positive_int(name)
 
 
 def _positive_float(name: str, *, default: float | None = None) -> float:

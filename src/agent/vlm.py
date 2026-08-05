@@ -103,6 +103,10 @@ class LlamaServerClient:
         )
         self._history.append(_ConversationTurn(history_observation, command))
 
+    def reset(self) -> None:
+        """Start a fresh VLM conversation for the next demo run."""
+        self._history.clear()
+
 
 def _user_message(
     observation: VisualObservation,

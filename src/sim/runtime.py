@@ -28,6 +28,19 @@ CONTROL_PERIOD = 1.0 / SONIC_FPS
 PORTRAIT_CORRIDOR_APPROACH_X = 1.0
 MAX_REPEATED_COMMANDS = 10
 
+PORTRAIT_CORRIDOR_RUNS = (
+    ("Center start", (0.0, 0.0)),
+    ("Left corridor entrance", (1.0, 2.0)),
+    ("Right corridor entrance", (1.0, -2.0)),
+    ("Center back", (-1.0, 0.0)),
+    ("Left back", (-1.0, 2.0)),
+    ("Right back", (-1.0, -2.0)),
+    ("Center approach", (0.5, 0.0)),
+    ("Left approach", (0.5, 2.0)),
+    ("Right approach", (0.5, -2.0)),
+    ("Center far back", (-1.5, 0.0)),
+)
+
 
 @dataclass(frozen=True)
 class ExecutionStats:
@@ -36,8 +49,22 @@ class ExecutionStats:
     overrun_steps: int
 
 
+@dataclass(frozen=True)
+class DemoRun:
+    title: str
+    start_xy: tuple[float, float]
+
+
 class MotionExecutionTimeout(RuntimeError):
     pass
+
+
+def portrait_corridor_demo_runs(count: int) -> tuple[DemoRun, ...]:
+    if not 1 <= count <= len(PORTRAIT_CORRIDOR_RUNS):
+        raise ValueError(
+            f"Demo run count must be in 1..{len(PORTRAIT_CORRIDOR_RUNS)}, got {count}"
+        )
+    return tuple(DemoRun(title, start_xy) for title, start_xy in PORTRAIT_CORRIDOR_RUNS[:count])
 
 
 class SimRuntime:
@@ -51,6 +78,7 @@ class SimRuntime:
         recorder: DemoVideoRecorder | None = None,
         stop_recording_at_corridor: bool = False,
         motion_timeout_seconds: float = 20.0,
+        demo_runs: tuple[DemoRun, ...] = (),
     ) -> None:
         self.node = node
         self.simulation = simulation
@@ -65,6 +93,8 @@ class SimRuntime:
             1, math.ceil(motion_timeout_seconds * SONIC_FPS)
         )
         self.motion_timeout_seconds = motion_timeout_seconds
+        self.demo_runs = demo_runs or (DemoRun("Center start", (0.0, 0.0)),)
+        self.run_index = 0
         self.observation_id = 0
         self._observation_published_at: float | None = None
         self.demo_vlm_state = DemoVlmState()
@@ -73,19 +103,7 @@ class SimRuntime:
         self._repeated_command_count = 0
 
     def run(self) -> None:
-        render_ms, jpeg_size = self._publish_observation(completed_command=None)
-        self.node.log(
-            "info",
-            f"[OBS 0] initial observation: render_ms={render_ms:.1f} "
-            f"jpeg_kb={jpeg_size / 1024.0:.1f} waiting=motion",
-            target="dsrf.sim",
-            fields={
-                "event": "initial_observation",
-                "observation_id": "0",
-                "render_ms": f"{render_ms:.1f}",
-                "jpeg_kb": f"{jpeg_size / 1024.0:.1f}",
-            },
-        )
+        self._start_run()
         for event in self.node:
             if event["type"] == "STOP":
                 return
@@ -94,6 +112,38 @@ class SimRuntime:
             self._accept_motion(event)
             if self._demo_complete:
                 return
+
+    def _start_run(self) -> None:
+        run = self.demo_runs[self.run_index]
+        self.simulation.reset_at(*run.start_xy)
+        self.policy.reset()
+        self.observation_id = 0
+        self._observation_published_at = None
+        self.demo_vlm_state = DemoVlmState()
+        self._last_command_signature = None
+        self._repeated_command_count = 0
+        if self.viewer is not None:
+            self.viewer.sync()
+        if self.recorder is not None:
+            self.recorder.write_title_card(
+                self.renderer.capture_demo_rgb(),
+                f"Run #{self.run_index + 1} — {run.title}",
+            )
+        render_ms, jpeg_size = self._publish_observation(completed_command=None)
+        self.node.log(
+            "info",
+            f"[RUN {self.run_index + 1}/{len(self.demo_runs)} OBS 0] "
+            f"initial observation: render_ms={render_ms:.1f} "
+            f"jpeg_kb={jpeg_size / 1024.0:.1f} waiting=motion",
+            target="dsrf.sim",
+            fields={
+                "event": "initial_observation",
+                "run": str(self.run_index + 1),
+                "observation_id": "0",
+                "render_ms": f"{render_ms:.1f}",
+                "jpeg_kb": f"{jpeg_size / 1024.0:.1f}",
+            },
+        )
 
     def _accept_motion(self, event: dict[str, Any]) -> None:
         received_at = time.perf_counter()
@@ -237,27 +287,22 @@ class SimRuntime:
         if root_x < PORTRAIT_CORRIDOR_APPROACH_X:
             return False
 
-        recorder = self.recorder
-        self.recorder = None
-        recorder.close()
-        self._demo_complete = True
         self.node.log(
             "info",
-            "Demo recording stopped: robot is standing at the corridor approach "
+            "Demo run completed: robot is standing at the corridor approach "
             f"(x={root_x:.2f})",
             target="dsrf.sim",
             fields={
-                "event": "demo_recording_stopped",
+                "event": "demo_run_completed",
+                "run": str(self.run_index + 1),
                 "root_x": f"{root_x:.3f}",
                 "command": command,
             },
         )
-        self._request_dataflow_stop()
+        self._advance_or_stop("corridor reached")
         return True
 
     def _handle_motion_timeout(self, command: str, detail: str) -> None:
-        self._close_recorder()
-        self._demo_complete = True
         self.node.log(
             "error",
             f"[OBS {self.observation_id}] motion timeout: {detail}",
@@ -269,11 +314,9 @@ class SimRuntime:
                 "detail": detail,
             },
         )
-        self._request_dataflow_stop()
+        self._advance_or_stop("motion timeout")
 
     def _handle_repeated_command(self, command: str) -> None:
-        self._close_recorder()
-        self._demo_complete = True
         self.node.log(
             "error",
             f"[OBS {self.observation_id}] repeated command loop: "
@@ -286,6 +329,26 @@ class SimRuntime:
                 "count": str(self._repeated_command_count),
             },
         )
+        self._advance_or_stop("repeated command loop")
+
+    def _advance_or_stop(self, reason: str) -> None:
+        if self.run_index + 1 < len(self.demo_runs):
+            self.run_index += 1
+            self.node.log(
+                "info",
+                f"Starting demo run {self.run_index + 1}/{len(self.demo_runs)} "
+                f"after {reason}",
+                target="dsrf.sim",
+                fields={
+                    "event": "demo_next_run",
+                    "run": str(self.run_index + 1),
+                    "reason": reason,
+                },
+            )
+            self._start_run()
+            return
+        self._close_recorder()
+        self._demo_complete = True
         self._request_dataflow_stop()
 
     def _close_recorder(self) -> None:
@@ -328,6 +391,7 @@ class SimRuntime:
             completed_command=completed_command,
             jpeg=jpeg,
             projection=projection,
+            run_id=self.run_index,
         )
         data, metadata = observation_to_arrow(observation)
         self.node.send_output("observation", data, metadata=metadata)

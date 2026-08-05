@@ -88,6 +88,17 @@ class MjlabEnv:
         with self.compute_context():
             return self._env.reset()
 
+    def reset_at(self, x: float, y: float) -> None:
+        """Reset the robot at a world-frame XY position for a demo run."""
+        with self.compute_context():
+            self._env.reset()
+            robot = self._env.scene["robot"].data
+            root_state = robot.default_root_state.clone()
+            root_state[:, 0] = x
+            root_state[:, 1] = y
+            robot.write_root_state(root_state)
+            self._env.sim.forward()
+
     def render(self) -> np.ndarray:
         with self.compute_context():
             image = self._env.render()

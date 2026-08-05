@@ -7,7 +7,7 @@ from dora import Node
 from shared.config import SimConfig
 from sim.env import MjlabEnv
 from sim.renderer import SimRenderer
-from sim.runtime import SimRuntime
+from sim.runtime import SimRuntime, portrait_corridor_demo_runs
 from sim.sonic.policy import SonicPolicy
 from sim.video import DemoVideoRecorder
 from sim.viewer import NativeSimViewer, SimViewer, ViserSimViewer
@@ -41,9 +41,14 @@ def main() -> None:
                 else ViserSimViewer(simulation, reference)
             )
         renderer = SimRenderer(simulation, jpeg_quality=cfg.jpeg_quality)
+        video_path = (
+            cfg.demo_video_dir / "portrait-corridors-10-runs.mp4"
+            if cfg.demo_video_dir is not None
+            else cfg.demo_video_path
+        )
         recorder = (
-            DemoVideoRecorder(cfg.demo_video_path)
-            if cfg.demo_video_path is not None
+            DemoVideoRecorder(video_path)
+            if video_path is not None
             else None
         )
         _log_init(node, cfg)
@@ -56,6 +61,11 @@ def main() -> None:
             recorder,
             stop_recording_at_corridor=cfg.task == "portrait-corridors",
             motion_timeout_seconds=cfg.motion_timeout_seconds,
+            demo_runs=(
+                portrait_corridor_demo_runs(cfg.demo_runs)
+                if cfg.task == "portrait-corridors" and recorder is not None
+                else ()
+            ),
         ).run()
     finally:
         if "recorder" in locals() and recorder is not None:

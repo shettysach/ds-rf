@@ -93,6 +93,24 @@ class DemoVideoRecorder:
         self._writer.close()
         self._closed = True
 
+    def write_title_card(self, rgb: np.ndarray, title: str, *, seconds: float = 1.5) -> None:
+        """Append a short title card between independently reset demo runs."""
+        image = Image.new("RGB", (rgb.shape[1], rgb.shape[0]), (10, 14, 22))
+        draw = ImageDraw.Draw(image)
+        try:
+            title_font = ImageFont.truetype(
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 42
+            )
+        except OSError:
+            title_font = self._bold_font
+        box = draw.textbbox((0, 0), title, font=title_font)
+        x = (image.width - (box[2] - box[0])) // 2
+        y = (image.height - (box[3] - box[1])) // 2
+        draw.text((x, y), title, fill=(255, 255, 255), font=title_font)
+        for _ in range(max(1, round(seconds * SONIC_FPS))):
+            self._writer.append_data(np.asarray(image))
+            self.frames += 1
+
 
 def _decision_label(command: str) -> str:
     try:

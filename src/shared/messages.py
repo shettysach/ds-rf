@@ -127,10 +127,13 @@ class VisualObservation:
     completed_command: str | None
     jpeg: bytes
     projection: ProjectionContext | None = None
+    run_id: int = 0
 
     def __post_init__(self) -> None:
         if self.observation_id < 0:
             raise ValueError("Observation ID must be non-negative")
+        if self.run_id < 0:
+            raise ValueError("Run ID must be non-negative")
         if not self.jpeg:
             raise ValueError("Observation JPEG is empty")
 
@@ -238,6 +241,7 @@ def observation_to_arrow(
 ) -> tuple[pa.Array, dict[str, str]]:
     metadata = {
         "observation_id": str(observation.observation_id),
+        "run_id": str(observation.run_id),
         "mime_type": "image/jpeg",
     }
     if observation.completed_command is not None:
@@ -307,6 +311,7 @@ def observation_from_arrow(
         ),
         jpeg=jpeg,
         projection=projection,
+        run_id=int(metadata.get("run_id", 0)),
     )
 
 

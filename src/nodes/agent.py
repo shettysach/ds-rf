@@ -37,6 +37,7 @@ class AgentLoop:
         self.node = node
         self.client = client
         self.observation: VisualObservation | None = None
+        self.run_id: int | None = None
         self.pending_command: str | None = None
         self.invalid_responses = 0
         self.waypoint_debug = waypoint_debug
@@ -58,6 +59,13 @@ class AgentLoop:
                 self._accept_error(pipeline_error_from_arrow(event["value"]))
 
     def _accept_observation(self, observation: VisualObservation) -> None:
+        if observation.run_id != self.run_id:
+            if hasattr(self.client, "reset"):
+                self.client.reset()
+            self.run_id = observation.run_id
+            self.observation = None
+            self.pending_command = None
+            self.invalid_responses = 0
         if self.observation is None:
             if observation.observation_id != 0:
                 raise RuntimeError(
