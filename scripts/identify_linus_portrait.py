@@ -11,12 +11,24 @@ import os
 import urllib.request
 from pathlib import Path
 
+DEFAULT_IMAGES = (
+    Path(__file__).resolve().parents[1] / "tasks/portrait_corridors/images/karpathy.png",
+    Path(__file__).resolve().parents[1] / "tasks/portrait_corridors/images/linus.png",
+    Path(__file__).resolve().parents[1] / "tasks/portrait_corridors/images/bugs.png",
+)
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Identify which of three images is a portrait of Linus."
     )
-    parser.add_argument("images", nargs=3, type=Path, metavar="IMAGE")
+    parser.add_argument(
+        "images",
+        nargs="*",
+        type=Path,
+        metavar="IMAGE",
+        help="three images; defaults to Karpathy, Linus, then Bugs",
+    )
     parser.add_argument(
         "--url",
         default=os.environ.get("VLM_URL", "http://127.0.0.1:8080"),
@@ -24,6 +36,9 @@ def main() -> None:
     )
     parser.add_argument("--timeout", type=float, default=120.0)
     args = parser.parse_args()
+    images = tuple(args.images) or DEFAULT_IMAGES
+    if len(images) != 3:
+        parser.error("provide exactly three images")
 
     content: list[dict[str, object]] = [
         {
@@ -35,7 +50,7 @@ def main() -> None:
             ),
         }
     ]
-    for index, path in enumerate(args.images):
+    for index, path in enumerate(images):
         if not path.is_file():
             raise SystemExit(f"Image does not exist: {path}")
         mime_type = mimetypes.guess_type(path.name)[0] or "image/jpeg"
